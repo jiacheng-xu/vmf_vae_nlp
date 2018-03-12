@@ -1,59 +1,36 @@
 # from pythonrouge import summarizer
 import copy
 import datetime
-
+import torch
 import os
-
-import util
-from CONSTANTS import *
-from  util import *
-from util import Logger
-
-# import GPUtil
-stop_words = [',', '.', 'to', 'the', '<\\s>', '<s>', 'a', 'of', 'he', 'is', 'was', 'on', 'have', 'has', 'be', '`', '\'',
-              'it',
-              'in']
+import numpy as np
+from torch.autograd import Variable as Var
 
 
-class Trainer(object):
-    def __init__(self, opt, model, dicts, data):
+class Trainer():
+    def __init__(self, opt, model, data):
         weight = torch.ones(opt.full_dict_size)
-        weight[PAD] = 0
-        assert PAD == dicts[0].fword2idx('<pad>')
-        # if opt.mul_loss:
-        #     self.crit = torch.nn.NLLLoss(size_average=False, ignore_index=PAD, reduce=False)
-        # else:
-        #     self.crit = torch.nn.NLLLoss(size_average=True, ignore_index=PAD)
+        weight[0] = 0
+        assert 0 == opt.word_dict.fword2idx('<pad>')
+
         self.opt = opt
         self.model = model
         self.train_bag = data
         self.n_batch = len(self.train_bag)
+
         parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         self.optimizer = torch.optim.Adagrad(parameters, lr=opt.lr)  # TODO
         # self.optimizer = torch.optim.SGD(parameters,lr=opt.lr)
 
-        self.mul_loss = opt.mul_loss
-        self.add_loss = opt.add_loss
+        # self.mul_loss = opt.mul_loss
+        # self.add_loss = opt.add_loss
 
         # dicts = [word_dict, pos_dict, ner_dict]
-        self.word_dict = dicts[0]
-        self.pos_dict = dicts[1]
-        self.ner_dict = dicts[2]
+        self.word_dict = opt.word_dict
 
         self.clip = opt.clip
-        # self.val_bag = val_data
-        self.bool_test = False
-        self.coverage = self.opt.coverage
-        self.logger = Logger(opt.print_every, self.n_batch)
-        self.histo = None
+        # self.coverage = self.opt.coverage
 
-    def assert_special_chars(self):
-        return None
-        # print self.word_dict.word2idx['<eos>']
-        assert self.word_dict.word2idx['<eos>'] == EOS
-        assert self.word_dict.word2idx['<pad>'] == PAD
-        assert self.word_dict.word2idx['<sos>'] == SOS
-        assert self.word_dict.word2idx['<unk>'] == UNK
 
     def weighted_loss(self, decoder_outputs_prob, decoder_outputs, tgt_var):
         """
@@ -98,45 +75,33 @@ class Trainer(object):
         return loss, original_loss
 
     def train_iters(self):
-
+        """
+        Training function called from main.py.
+        :return:
+        """
         for epo in range(self.opt.start_epo, self.opt.n_epo + 1):
             self.logger.init_new_epo(epo)
             # Schedule
             self.opt.max_len_enc, self.opt.max_len_dec, self.cov_loss_weight = util.schedule(epo)
-            # if self.opt.max_len_enc == self.histo:
-            #     need_to_recompute = False
-            # else:
-            #     need_to_recompute = True
-            #     self.histo = self.opt.max_len_enc
-
-            # self.train_bag = self.model.feat.update_msks(self.opt.max_len_enc, self.opt.max_len_dec, self.train_bag,
-            #                                              self.ner_dict)
-
-            # if self.opt.feat_sp or self.opt.feat_nn:
-            #     self.train_bag = self.model.feat.sp.extract_feat(self.opt, self.train_bag,
-            #                                                      [self.pos_dict, self.ner_dict])
 
             batch_order = np.arange(self.n_batch)
             np.random.shuffle(batch_order)
 
             for idx, batch_idx in enumerate(batch_order):
                 self.logger.init_new_batch(batch_idx)
-                tmp_cur_batch = self.train_bag[batch_idx]
+                current_batch = self.train_bag[batch_idx]
 
-                current_batch = copy.deepcopy(tmp_cur_batch)
-                # if need_to_recompute:
-                current_batch = self.model.feat.update_msks_batch(
-                    self.opt, self.opt.mode, self.opt.max_len_enc, self.opt.max_len_dec, current_batch, self.pos_dict,
-                    self.ner_dict)
+                # current_batch = copy.deepcopy(tmp_cur_batch)
 
-                inp_var = current_batch['cur_inp_var']
-                inp_mask = current_batch['cur_inp_mask']
-                out_var = current_batch['cur_out_var']
-                out_mask = current_batch['cur_out_mask']
-                scatter_msk = current_batch['cur_scatter_mask'].cuda()
-                replacement = current_batch['replacement']
-                max_oov_len = len(replacement)
-                self.logger.set_oov(max_oov_len)
+                inp_var = current_batch['txt']
+                inp_msk = current_batch['txt_msk']
+
+                # out_var = current_batch['cur_out_var']
+                # out_mask = current_batch['cur_out_mask']
+                # scatter_msk = current_batch['cur_scatter_mask'].cuda()
+                # replacement = current_batch['replacement']
+                # max_oov_len = len(replacement)
+                # self.logger.set_oov(max_oov_len)
 
                 if self.opt.feat_word or self.opt.feat_ent or self.opt.feat_sent:
                     features = [current_batch['word_feat'], current_batch['ent_feat'], current_batch['sent_feat']]
@@ -171,12 +136,14 @@ class Trainer(object):
                 #
                 # scatter_mask = util.prepare_scatter_map(inp_var[0])
 
-                inp_var = [Var(x) for x in inp_var]
+                # inp_var = [Var(x) for x in inp_var]
+                inp_var = Var(inp_var)
 
                 if self.opt.use_cuda:
-                    inp_var = [x.contiguous().cuda() for x in inp_var]
+                    # inp_var = [x.contiguous().cuda() for x in inp_var]
+                    inp_var= inp_var.contiguous().cuda()
 
-                self.func_train(inp_var, inp_mask, out_var, out_mask, features, feature_msks, max_oov_len,
+                self.func_train(inp_var, inp_msk, out_var, out_mask, features, feature_msks, max_oov_len,
                                 scatter_msk, bigram_bunch)
 
                 if idx % self.opt.save_every == 0:
@@ -207,129 +174,5 @@ class Trainer(object):
                     os.chdir('..')
             # End Saving
             ########
-
-        print('\n')
-
-    def func_train(self, inp_var, inp_msk, out_var, tgt_msk, features, feature_msks, max_oov_len, scatter_mask,
-                   bigram_bunch):
-        self.optimizer.zero_grad()  # clear grad
-
-        tgt_var, attn_sup = out_var
-
-        batch_size = inp_var[0].size()[1]
-        batch_size_ = tgt_var.size()[1]
-        assert batch_size == batch_size_ == inp_var[2].size()[1] == inp_var[1].size()[1]
-
-        target_len = tgt_var.size()[0]
-        src_len = inp_var[0].size()[0]
-
-        self.logger.current_batch['valid_pos'] = torch.sum(tgt_msk)
-
-        decoder_outputs_prob, decoder_outputs, attns, discount, loss_cov, p_copys = self.model.train_forward(inp_var,
-                                                                                                             tgt_var,
-                                                                                                             inp_msk,
-                                                                                                             tgt_msk,
-                                                                                                             features,
-                                                                                                             feature_msks,
-                                                                                                             max_oov_len,
-                                                                                                             scatter_mask,
-                                                                                                             bigram_bunch,
-                                                                                                             self.logger)
-        tgt_padding_mask = Var(tgt_msk.float(), requires_grad=False).cuda().view(target_len * batch_size, 1)
-
-        # print(decoder_outputs_prob, decoder_outputs, attns, discount, loss_cov)
-        # decoder_outputs_prob: tgt,batch,full_vocab
-        # decoder_outputs: tgt, batch
-        # attns: tgt, batch, src_len
-        # discount: tgt, batch, full_vocab
-        # loss_cov: tgt, batch
-        # p_copys: batch, tgt   Value only
-
-        if self.opt.copy:
-            self.logger.lm.add_LossItem(LossItem(name='pgen', node=torch.mean(p_copys), weight=0))
-
-        if self.coverage:
-            # loss_cov: tgt, batch
-            flat_loss_cov = loss_cov.view(target_len * batch_size, 1)
-            val_loss_cov = torch.mean(tgt_padding_mask * flat_loss_cov)
-            self.logger.lm.add_LossItem(LossItem(name='cov', node=val_loss_cov, weight=self.opt.lw_cov))
-
-        if self.opt.attn_sup:
-            # attn_sup: tgt_len, batch LongTensor
-            # attns: tgt_len, batch, src_len floatTensor
-            tgt_sz, batch_sz = attn_sup.size()
-            tgt_sz_, batch_sz_, src_len_ = attns.size()
-            assert batch_sz == batch_size_
-            flat_attn_sup = Var(attn_sup.view(-1)).cuda()
-            flat_attns = attns.view(-1, src_len_)
-
-            valid_attn_msk = torch.gt(flat_attn_sup, 0)
-            valid_tgt = torch.masked_select(flat_attn_sup, valid_attn_msk)
-
-            extded_valid_attn_msk = valid_attn_msk.view(-1, 1).expand_as(flat_attns)
-            valid_pred = torch.masked_select(flat_attns, extded_valid_attn_msk)
-
-            valid_pred = valid_pred.view(-1, src_len_)
-            loss_attn = -torch.log(torch.gather(valid_pred, 1, valid_tgt.unsqueeze(1)))
-            loss_attn = torch.mean(loss_attn)
-            self.logger.lm.add_LossItem(LossItem(name='attn', node=loss_attn, weight=self.opt.lw_attn))
-            # loss_attn = 1 - torch.mean(torch.gather(valid_pred, 0, valid_tgt))
-
-        # Compulsory NLL loss part
-        pred_prob = decoder_outputs_prob.view(target_len * batch_size, -1)
-        gold_dist = Var(tgt_var).view(target_len * batch_size, 1).cuda()
-        losses = -torch.gather(pred_prob, 1, gold_dist)
-        losses = losses * tgt_padding_mask
-        # Then for -inf mask. a word neither exists in vocab nor exists in source article will be
-        # -inf.
-        inf_mask = losses.le(10000)
-        nll_loss = torch.masked_select(losses, inf_mask)
-        nll_loss = torch.mean(nll_loss)
-        self.logger.lm.add_LossItem(LossItem(name='NLL', node=nll_loss, weight=self.opt.lw_nll))
-
-        if self.mul_loss:
-            # discount: tgt, batch, full_vocab
-
-            # discount = torch.min(discount, torch.ones_like(discount))  # should naturally <1
-            # discount = -torch.masked_select(discount, torch.gt(discount, 0))
-            discount = 2 - torch.sum(discount) / 200
-
-            # discount = torch.mean(discount)
-            self.logger.lm.add_LossItem(LossItem(name='BGdyn', node=discount, weight=self.opt.lw_bgdyn))
-        elif self.add_loss:
-            # print(discount)
-            _msk = torch.gt(discount, 0).view(target_len * batch_size, -1).float()
-
-            # x = torch.masked_select(losses, _msk)
-            discount = 1-torch.sum(losses * _msk) / 500
-            # print(x)
-
-
-            # reward_msk = 1 - torch.gt(discount, 0).float().view(target_len * batch_size, -1) * 99./100.
-            # sta_weighted_loss = torch.mean(losses * reward_msk)
-            self.logger.lm.add_LossItem(LossItem(name='BGsta', node=discount, weight=self.opt.lw_bgsta))
-
-        loss = self.logger.lm.compute()
-        loss.backward()
-        # print('update')
-        torch.nn.utils.clip_grad_norm(self.model.parameters(), self.clip)
-        self.optimizer.step()
-        self.logger.batch_end()
-
-    def para_loader(self, path):
-        # Read txt files externally to revise current paras
-        with open(path, 'r') as f:
-            inp = f.readlines()
-            for line in inp:
-                name, val, typ = line.split('\t')
-                try:
-                    if typ == 'str':
-                        val = str(val)
-                    elif typ == 'float':
-                        val = float(val)
-                    elif typ == 'int':
-                        val = int(val)
-                    else:
-                        raise RuntimeError
-                except:
-                    Warning("Decoding para file failure.")
+    def saver(self):
+        pass

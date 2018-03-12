@@ -1,8 +1,8 @@
-import genut
-
 import torch.nn as nn
 from genut.modules.embedding import SingleEmbeddings
 from genut.modules.enc.rnn_enc import RNNEncoder
+from genut.modules.dec.decoder import RNNDecoder
+
 
 class Seq2seq(nn.Module):
     def __init__(self, opt, pretrain=None):
@@ -30,7 +30,7 @@ class Seq2seq(nn.Module):
 
 
 
-        rnn_dec = DecoderReal.InputFeedRNNDecoder(opt, rnn_type='lstm', num_layers=1,
+        rnn_dec = RNNDecoder(opt, rnn_type='lstm', num_layers=1,
                                               hidden_size=opt.hid_dim, input_size=opt.inp_dim, attn_type='general',
                                               coverage=opt.coverage,
                                               copy=opt.copy, dropout=opt.dropout, emb=self.emb,
@@ -40,45 +40,41 @@ class Seq2seq(nn.Module):
 
         self.dec = rnn_dec
 
-    def forward(self):
-        if self.training:
-            pass
-        else:
-            pass
+    def forward(self, inp_var, inp_msk, tgt_var=None, tgt_msk=None, aux=None):
+        if self.training:       # train mode
+            self.forward_train(inp_var, inp_msk, tgt_var, tgt_msk, aux)
+        else:                   # eval mode
+            self.forward_eval(inp_var, inp_msk, aux)
 
+    def forward_train(self, inp_var, inp_msk, tgt_var, tgt_msk, aux):
 
-    def train_forward(self, inp_var, tgt_var, inp_mask, tgt_mask, features, feature_msks, max_oov_len, scatter_mask,
-                      bigram_bunch,
-                      logger):
+        # def forward_train(self, inp_var, tgt_var, inp_mask, tgt_mask, features, feature_msks, max_oov_len, scatter_mask,
+        #                   bigram_bunch,logger):
         # Input: WordIdx, PosIdx, NerIdx
         emb = self.emb.forward(inp_var)
         # Output: Combined Word Embedding
 
         # Input: Combined Word Embedding  seq,batch,dim
-        context, h_t = self.enc.forward(emb, inp_mask)
+        context, h_t = self.enc.forward(emb, inp_msk)
         # Output: Encoded H and h[-1]. seq,batch,dim and batch,dim
 
         # Run sparse feature encoder
 
-        if self.feat != None:
-            feats = self.feat.compute(context, features, feature_msks)
-        else:
-            feats = None
+        # if self.feat != None:     # TODO feature module currently unavail
+        #     feats = self.feat.compute(context, features, feature_msks)
+        # else:
+        #     feats = None
 
-        decoder_outputs_prob, decoder_outputs, attns, discount, loss_cov, p_copys = self.dec.forward(context, inp_mask,
+        decoder_outputs_prob, decoder_outputs, attns, discount, loss_cov, p_copys = self.dec.forward(context, inp_msk,
                                                                                                      h_t,
-                                                                                                     tgt_var, tgt_mask,
-                                                                                                     inp_var, feats,
-                                                                                                     max_oov_len,
-                                                                                                     scatter_mask,
-                                                                                                     bigram_bunch,
-                                                                                                     logger)
+                                                                                                     tgt_var, tgt_msk,
+                                                                                                     inp_var, aux)
 
         # context batch seq_len, hidden_size * num_directions )
         # hidden num_layers, seq , num_directions x hidden_size)
         return decoder_outputs_prob, decoder_outputs, attns, discount, loss_cov, p_copys
 
-    def inference(self, inp_var, inp_mask, features, feature_msks, max_oov_len, scatter_mask):
+    def forward_eval(self, inp_var, inp_mask, aux):
         """
 
         :param inp_var: (seq len, batch size)

@@ -1,52 +1,52 @@
+import unittest
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable as Var
-
-import unittest
 
 
 class RNNEncoder(nn.Module):
     def __init__(self, opt, input_size, hidden_size, rnn_type='lstm'):
         super(RNNEncoder, self).__init__()
 
-        self.use_drop_emb = opt.use_drop_emb
-        if opt.use_drop_emb:
-            self.drop_embed = nn.Dropout(opt.dropout_emb)
-
         # RNN Init
         self.n_layers = opt.enc_layers
-
         self.bidirect = True  # By default Bidirect
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.rnn_type = rnn_type
-        if opt.use_drop:
-            self.dropout = opt.dropout
-        else:
-            self.dropout = 0
 
         self.reduce_h_W = nn.Linear(hidden_size * 2, hidden_size, bias=True)
         self.reduce_c_W = nn.Linear(hidden_size * 2, hidden_size, bias=True)
         if rnn_type == 'gru':
-            self.rnn = nn.GRU(input_size, hidden_size,
-                              dropout=self.dropout, bidirectional=self.bidirect)
+            self.rnn = nn.GRU(input_size, hidden_size,batch_first=True,
+                              dropout=opt.dropout, bidirectional=self.bidirect)
         elif rnn_type == 'lstm':
-            self.rnn = nn.LSTM(input_size, hidden_size,
-                               dropout=self.dropout, bidirectional=self.bidirect)
+            self.rnn = nn.LSTM(input_size, hidden_size,num_layers=1,batch_first=True,
+                               dropout=opt.dropout, bidirectional=self.bidirect)
+
         else:
             raise NotImplementedError
-
+        #
+        self.init_weight()
         self.use_cuda = opt.use_cuda
 
     def init_weight(self):
         # kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros'
-        if self.rnn_type =='lstm':
-            nn.init.xavier_uniform(self.rnn, gain=nn.init.calculate_gain('relu'))
-            pass
-        elif self.rnn_type == 'gru':
-            pass
+        if self.rnn_type == 'lstm':
 
+            nn.init.xavier_uniform(self.rnn.weight_hh_l0, gain=1)
+            nn.init.xavier_uniform(self.rnn.weight_hh_l0_reverse, gain=1)
+            nn.init.xavier_uniform(self.rnn.weight_ih_l0, gain=1)
+            nn.init.xavier_uniform(self.rnn.weight_ih_l0_reverse, gain=1)
+
+            torch.nn.init.constant(self.rnn.bias_hh_l0,0)
+            nn.init.constant(self.rnn.bias_hh_l0_reverse, 0)
+            nn.init.constant(self.rnn.bias_ih_l0, 0)
+            nn.init.constant(self.rnn.bias_ih_l0_reverse, 0)
+        elif self.rnn_type == 'gru':
+            nn.init.xavier_uniform(self.rnn.weight.data, gain=1)
 
     def init_hidden(self, batch_size):
         if self.bidirect:
@@ -67,13 +67,11 @@ class RNNEncoder(nn.Module):
         :return: output: PackedSequence (seq_len*batch,  hidden_size * num_directions),
                 hidden tupple ((batch, hidden_size*2), ....)
         """
-        batch_size = embedded.data.shape[1]
-        if self.use_drop_emb:
-            embedded = self.drop_embed(embedded)
+        batch_size = embedded.data.shape[0]
 
-        list_msk = torch.sum(inp_msk.long(), dim=0).tolist()
+        # list_msk = torch.sum(inp_msk.long(), dim=0).tolist()
 
-        packed_embedding = nn.utils.rnn.pack_padded_sequence(embedded, list_msk)
+        packed_embedding = nn.utils.rnn.pack_padded_sequence(embedded, inp_msk,batch_first=True)
 
         if self.rnn_type == 'lstm':
             # output, hn = self.rnn(packed_embedding,
@@ -104,15 +102,16 @@ class RNNEncoder(nn.Module):
 
                 h, c = hn[0], hn[1]
                 h_, c_ = _fix_hidden(h), _fix_hidden(c)
-                new_h = F.relu(self.reduce_h_W(h_))
-                new_c = F.relu(self.reduce_c_W(c_))
+                # new_h = F.relu(self.reduce_h_W(h_))
+                # new_c = F.relu(self.reduce_c_W(c_))
+                new_h = self.reduce_h_W(h_)
+                new_c = self.reduce_c_W(c_)
                 h_t = (new_h, new_c)
             elif self.rnn_type == 'gru':
                 h_t = (_fix_hidden(hn))
         else:
             raise NotImplementedError
-
-        return output, h_t
+        return  h_t
 
 
 class TestStringMethods(unittest.TestCase):
@@ -136,7 +135,3 @@ if __name__ == "__main__":
     batch = 16
     seq = 200
     dim = 400
-
-    inp = torch.autograd.Variable(torch.rand((seq, batch, dim)))
-    cnn = DCNNEncoder(inp_dim=dim, hid_dim=150, kernel_sz=5, pad=2, dilat=1)
-    cnn.forward(inp, 0)

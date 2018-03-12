@@ -224,7 +224,6 @@ def test_rouge():
     ROUGE_dir = './pythonrouge/pythonrouge/RELEASE-1.5.5/ROUGE-1.5.5.pl'
     data_dir = './pythonrouge/pythonrouge/RELEASE-1.5.5/data/'
     import os
-    print os.getcwd()
     # system summary & reference summary
     summary = [[
         " button denied 100th race start for mclaren after ers failure .",

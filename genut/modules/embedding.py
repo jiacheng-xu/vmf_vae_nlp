@@ -61,12 +61,11 @@ class MultiEmbeddings(nn.Module):
         return embedded_word
 
 
-
 class SingleEmbeddings(nn.Module):
     def __init__(self, opt, pretrain=None):
         super(SingleEmbeddings, self).__init__()
         self.opt = opt
-
+        self.drop = nn.Dropout(opt.dropout_emb)
         self.word_embedding = nn.Embedding(opt.full_dict_size, opt.inp_dim)
         if pretrain is not None:
             self.word_embedding.weight = nn.Parameter(torch.FloatTensor(pretrain))
@@ -78,9 +77,10 @@ class SingleEmbeddings(nn.Module):
         :return: seq_len, batch_sz, word_dim
         """
         embedded_word = self.word_embedding(inp)
-
-        return embedded_word
+        emb = self.drop(embedded_word)
+        return emb
 
     def forward_decoding(self, inp):
         embedded_word = self.word_embedding(inp)
-        return embedded_word
+        emb = self.drop(embedded_word)
+        return emb

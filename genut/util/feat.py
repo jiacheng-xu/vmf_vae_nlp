@@ -553,13 +553,3 @@ class SparseFeat():
         # print(end-start)
         return rt_feat
 
-
-# if __name__ == "__main__":
-#     spf = SparseFeat()
-class NNFeat():
-    def __init__(self, opt, feat_dim):
-        # FeatBase.__init__(self, opt)
-        pass
-
-    def compute(self, context, features_msk):
-        pass

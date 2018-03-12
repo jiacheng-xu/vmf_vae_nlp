@@ -1,21 +1,20 @@
 import random
-import unittest
+
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim
 from torch.autograd import Variable as Var
 
-
-from genut.util.beam import Beam
 from genut.modules.attention import Attention
 
-class RNNDecoderBase(nn.Module):
+class RNNDecoder(nn.Module):
     def __init__(self, opt, rnn_type='lstm', num_layers=1,
                  hidden_size=100, input_size=50, attn_type='dot', coverage=False,
                  copy=False, dropout=0.1, emb=None, full_dict_size=None, word_dict_size=None,
                  max_len_dec=100, beam=True):
-        super(RNNDecoderBase, self).__init__()
+        super(RNNDecoder, self).__init__()
         self.opt = opt
         self.rnn_type = rnn_type
         self.num_layers = num_layers
@@ -66,26 +65,144 @@ class RNNDecoderBase(nn.Module):
     #     self.mask = mask
     #     self.attn.mask = mask
 
-    def forward(self, context, context_mask, state, tgt, tgt_mask, inp_var, feat, max_oov_len, scatter_mask,
-                bigram_bunch,
-                logger):
-        """
+    def build_rnn(self, rnn_type, input_size,
+                  hidden_size, num_layers):
+        if num_layers > 1:
+            raise NotImplementedError
+        if rnn_type == "lstm":
+            return torch.nn.LSTMCell(input_size, hidden_size, bias=True)
+        elif rnn_type == 'gru':
+            return torch.nn.GRUCell(input_size, hidden_size, bias=True)
+        else:
+            raise NotImplementedError
 
-        :param context: a PackedSequence obj
-        :param context_mask: List, containing mask len. [300,250,200,....]
-        :param state: tuple for LSTM.
-        :param tgt:
-        :param tgt_mask:
-        :param inp_var:
-        :param max_oov_len:
+    def run_forward_step(self, input, context, context_mask, feats, prev_state, prev_attn, coverage=None, inp_var=None,
+                         max_oov_len=None,
+                         scatter_mask=None):
+        """
+        :param input: (LongTensor): a sequence of input tokens tensors
+                                of size (1 x batch).
+        :param context: (FloatTensor): output(tensor sequence) from the enc
+                        RNN of size (src_len x batch x hidden_size).
+        :param prev_state: tuple (FloatTensor): Maybe a tuple if lstm. (batch x hidden_size) hidden state from the enc RNN for
+                                 initializing the decoder.
+        :param coverage
+        :param inp_var
         :return:
         """
-        if self.opt.mul_loss or self.opt.add_loss:
-            bigram, bigram_msk, bigram_dicts = bigram_bunch
-            bigram = Var(bigram, requires_grad=False).cuda()
-            # bigram_msk = Var(bigram_msk, requires_grad=False).cuda()
 
-            # window_msk = Var(window_msk, requires_grad=False).float().cuda().contiguous()
+        if isinstance(prev_state, (tuple)):
+            batch_size_, hidden_size_ = prev_state[0].size()
+        else:
+            batch_size_, hidden_size_ = prev_state.size()
+        src_len, batch_size, hidden_size = context.size()
+        # input = input.squeeze()
+        inp_size, batch_size__ = input.size()
+        assert inp_size == 1
+        assert batch_size_ == batch_size__ == batch_size
+
+        # Start running
+        input = input.cuda()
+        emb = self.embeddings.forward_decoding(input)
+        assert emb.dim() == 3  # 1 x batch x embedding_dim
+        emb = emb.squeeze(0)  # batch, embedding_dim
+        #
+        # print(emb.size())
+        # print(prev_state.size())
+        # print(self.rnn)
+        current_raw_state = self.rnn(emb, prev_state)  # rnn_output: batch x hiddensize. hidden batch x hiddensize
+
+        if self.rnn_type == 'lstm':
+            assert type(current_raw_state) == tuple
+            current_state_h = current_raw_state[0]
+            current_state_c = current_raw_state[1]
+        elif self.rnn_type == 'gru':
+            current_state_h = current_raw_state
+            current_state_c = current_raw_state
+
+        attn_h_weighted, a = self.attn.forward(current_raw_state,
+                                               context.clone().transpose(0, 1), context_mask, prev_attn,
+                                               coverage, feats)
+
+        # attn_h_weighted: batch, dim
+        # a:               batch, src
+
+        if self._copy:
+            # copy_merge =
+            copy_mat = self.copy_linear(torch.cat([attn_h_weighted, current_state_h, current_state_c, emb], dim=1))
+            p_gen = F.sigmoid(copy_mat)
+
+        hidden_state_vocab = torch.cat([attn_h_weighted, current_state_h, current_state_c], 1)
+        hidden_state_vocab = self.W_out_0(hidden_state_vocab)
+        # prob_vocab = F.softmax(hidden_state_vocab)
+
+        max_hidden_state_vocab = torch.max(hidden_state_vocab,
+                                           dim=1, keepdim=True)[0]
+        hidden_state_vocab = hidden_state_vocab - max_hidden_state_vocab
+        prob_vocab = F.softmax(hidden_state_vocab)  # prob over vocab
+        # print('prob_vocab')
+        # print(prob_vocab)
+        if self._copy:
+            prob_vocab = p_gen * prob_vocab
+            new_a = a.clone()
+            # Scatter
+            zeros = Var(torch.zeros(batch_size_, self.word_dict_size + max_oov_len))
+            assert a.size()[1] == src_len
+            assert inp_var.size()[0] == src_len
+            assert inp_var.size()[1] == batch_size
+
+            # print(new_a)
+            # print(scatter_mask)
+            # exit()
+            # notice: t1.size(1) is equal orig.size(1)
+            # prob_copy = Var(zeros.scatter_(1, inp_var.data.transpose(1, 0).cpu(), a.data.cpu())).cuda()
+            # Copy scatter
+            # y = torch.sum(new_a)
+            new_attn = torch.bmm(scatter_mask, new_a.unsqueeze(2)).squeeze(2)
+
+            prob_copy = zeros.scatter_(1, inp_var.transpose(1, 0).cpu(), new_attn.cpu()).cuda()
+            # x = torch.sum(prob_copy,dim=1)
+            # print(x)
+            prob_final = Var(torch.zeros(prob_copy.size())).cuda()
+
+            prob_final[:, :self.opt.word_dict_size] = prob_vocab
+            prob_final = prob_final + (1 - p_gen) * prob_copy
+        else:
+            p_gen = 1
+            zeros = torch.zeros(batch_size_, self.word_dict_size + max_oov_len)
+            prob_final = Var(torch.zeros(zeros.size())).cuda()
+            prob_final[:, :self.opt.word_dict_size] = prob_vocab
+
+        prob_final = torch.log(prob_final + 0.0000001)
+
+        return current_raw_state, prob_final, coverage, a, p_gen
+        # current_state_h is raw hidden before attention
+        # prob_final is the final probability
+
+    def forward(self, context, inp_msk,
+                h_t,
+                tgt_var, tgt_msk,
+                inp_var, aux):
+        """
+
+        :param context:
+        :param inp_msk:
+        :param h_t:
+        :param tgt_var:
+        :param tgt_msk:
+        :param inp_var:
+        :param aux:
+        :return:
+        """
+        # context, context_mask, state, tgt, tgt_mask, inp_var, feat, max_oov_len, scatter_mask,
+        # bigram_bunch,
+        # logger):
+        # if self.opt.mul_loss or self.opt.add_loss:        # TODO additional module unavail
+        #     bigram, bigram_msk, bigram_dicts = bigram_bunch
+        #     bigram = Var(bigram, requires_grad=False).cuda()
+        #     # bigram_msk = Var(bigram_msk, requires_grad=False).cuda()
+        #
+        #     # window_msk = Var(window_msk, requires_grad=False).float().cuda().contiguous()
 
         tgt_len, batch_size = tgt.size()
 
@@ -120,8 +237,8 @@ class RNNDecoderBase(nn.Module):
         Attns = Var(torch.zeros((tgt_len, batch_size, src_len))).cuda()
 
         # Discount = Var(torch.zeros((tgt_len, batch_size))).cuda()  # Discount over attention
-        Discount = Var(
-            torch.zeros((tgt_len, batch_size, self.word_dict_size + max_oov_len))).cuda()  # Discount over output
+        # Discount = Var(
+        #     torch.zeros((tgt_len, batch_size, self.word_dict_size + max_oov_len))).cuda()  # Discount over output
 
         # if self.opt.mul_loss or self.opt.add_loss:
         #     Table = Var(torch.zeros((batch_size_, src_len, src_len))).cuda()
@@ -236,194 +353,4 @@ class RNNDecoderBase(nn.Module):
 
                 coverage = coverage + attn
 
-        # if self._copy:
-        #     logger.current_batch['p_gen'] = torch.mean(p_copys)
         return decoder_outputs_prob, decoder_outputs, Attns, Discount, loss_cov, p_copys
-
-    def build_rnn(self, rnn_type, input_size,
-                  hidden_size, num_layers):
-        if num_layers > 1:
-            raise NotImplementedError
-        if rnn_type == "lstm":
-            return torch.nn.LSTMCell(input_size, hidden_size, bias=True)
-        elif rnn_type == 'gru':
-            return torch.nn.GRUCell(input_size, hidden_size, bias=True)
-        else:
-            raise NotImplementedError
-
-    def beam_decode(self, context, context_msk, state, inp_var, feat, max_oov, scatter_mask):
-        """
-
-        :param context: PackedSequence(seq_len * batch, hidden_size * num_directions)
-        :param context_msk: [seq_len,..,.,...]
-        :param state: tupple((batch, hidden_size * 2), ....)
-        :param inp_var: seq_len, batch=1
-        :return:
-        """
-        # context, context_mask_ = nn.utils.rnn.pad_packed_sequence(context)
-        # assert context_msk == context_mask_
-        contxt_len, batch_size, hdim = context.size()
-        contxt_len_, batch_size_ = context_msk.size()
-        context_len__, batch_size__ = inp_var.size()
-        assert batch_size == 1 == batch_size_ == batch_size__
-        assert context_len__ == contxt_len == contxt_len_
-        # Till now, context: seq_len, batch_size, hidden_size (400)
-
-
-        archived_hyp = []
-
-        # Init for beam
-        hyps = [Beam(opt=self.opt, tokens=[self.opt.sos],
-                     log_probs=[0.0],
-                     state=state, prev_attn=[torch.zeros(contxt_len)], p_gens=[],
-                     coverage=torch.zeros((contxt_len)).cuda() if self._coverage else None
-                     # zero vector of length attention_length
-                     ) for _ in range(1)]
-
-        # expanded_mask = util.mask_translator(context_msk, batch_first=True, is_var=True)  # TODO
-
-        expanded_mask = context_msk.transpose(1, 0)
-
-        expanded_context = context.expand((contxt_len, len(hyps), hdim))
-        # expanded_mask = [context_msk[0] for t in range(len(hyps))]
-        expanded_inp_var = inp_var.expand((contxt_len, len(hyps)))
-        # self.set_mask(expanded_mask)
-        if feat is not None:
-            src_len, feat_dim = feat.size()
-            expanded_feat = feat.unsqueeze(0)
-        else:
-            expanded_feat = None
-
-        # if self._coverage:
-        #     coverage = Var(torch.zeros((batch_size, contxt_len))).cuda()
-        # else:
-        #     coverage = None
-
-        init = True
-
-        steps = 0
-
-        while steps < self.max_len_dec:
-
-            # batch forward
-            last_tokens = [h.latest_token for h in hyps]
-            last_tokens = np.asarray(last_tokens, dtype=int).reshape(1, len(hyps))
-            decoder_input = Var(torch.LongTensor(last_tokens), volatile=True).cuda()
-
-            last_attn = [h.latest_attn for h in hyps]
-            prev_attn = Var(torch.stack(last_attn)).cuda()
-            # prev_attn = prev_attn.squeeze(1)
-            if self._coverage:
-                last_cov = [h.coverage for h in hyps]
-                prev_cov = Var(torch.stack(last_cov))
-            else:
-                prev_cov = None
-            states = [h.state for h in hyps]
-            inp_h, inp_c = torch.FloatTensor(len(hyps), hdim), torch.FloatTensor(len(hyps), hdim)
-            for idx, s in enumerate(states):
-                inp_h[idx] = s[0].data
-                inp_c[idx] = s[1].data  # TODO
-            states = (Var(inp_h, volatile=True).cuda(), Var(inp_c, volatile=True).cuda())
-
-            # input, context, prev_state, coverage = None, inp_var = None
-            states, prob_final, coverage, attn, p_gen = self._run_forward_one(decoder_input, expanded_context,
-                                                                              expanded_mask, expanded_feat, states,
-                                                                              prev_attn,
-                                                                              prev_cov,
-                                                                              expanded_inp_var, max_oov, scatter_mask)
-            # input, context, context_mask, feats, prev_state, prev_attn, coverage=None, inp_var=None,max_oov_len=None,scatter_mask=None
-            if self._coverage:
-                coverage = coverage + attn \
-                    if coverage is not None else attn
-                coverage = coverage.data
-
-            all_hyps = []
-            for seed in range(len(hyps)):
-                prob = prob_final[seed]  # 50381
-                inp_h = states[0][seed]
-                inp_c = states[1][seed]
-                topv, topi = prob.data.topk(self.beam_size)
-                this_attn = attn[seed].data
-                this_p_gen = p_gen[seed].data
-                if self._coverage:
-                    this_cov = coverage[seed]
-                else:
-                    this_cov = None
-                for b in range(self.beam_size):
-                    three_gram = None
-                    if len(hyps[seed].tokens) > 2:
-                        three_gram = "%d_%d_%d" % (hyps[seed].tokens[-2], hyps[seed].tokens[-1], topi[b])
-
-                    bi_gram = None
-                    if len(hyps[seed].tokens) > 1:
-                        bi_gram = "%d_%d" % (hyps[seed].tokens[-1], topi[b])
-
-                    new_hyp = hyps[seed].extend(self.opt, topi[b], log_prob=topv[b],
-                                                state=(inp_h, inp_c), coverage=this_cov, bi_gram=bi_gram,
-                                                three_gram=three_gram,
-                                                prev_attn=this_attn, p_gen=this_p_gen)
-                    # new_hyp.avid_repeatition()
-                    # if repeated:
-                    #     print("Repeated")
-                    all_hyps.append(new_hyp)
-
-            # print("Step: %d"%(steps))
-            hyps = []
-            # print('--------')
-            for h in util.sort_hyps(all_hyps):
-                # print(h.avg_log_prob())
-                # print(h.log_probs)
-                # print(h.tokens)
-                if h.latest_token == self.opt.eos and len(h.tokens) > self.opt.min_len_dec:
-                    archived_hyp.append(h)
-                elif h.latest_token == self.opt.eos:
-                    h.tokens = h.tokens[:-1]
-                    h.log_probs = h.log_probs[:-1]
-                    h.prev_attn = h.prev_attn[:-1]
-                    h.p_gens = h.p_gens[:-1]
-                    hyps.append(h)
-                else:
-                    hyps.append(h)
-                if len(hyps) == self.beam_size:
-                    break
-
-            if len(archived_hyp) > 1:
-                archived_hyp = util.sort_hyps(archived_hyp)
-                if len(archived_hyp) > 1:
-                    archived_hyp = [archived_hyp[0]]
-
-            steps += 1
-            if len(hyps) == 0:
-                break
-
-            if init:
-                init = False
-                scatter_mask = scatter_mask.expand(len(hyps), contxt_len, contxt_len)
-                expanded_context = context.expand((contxt_len, len(hyps), hdim))
-                # expanded_dig_mask = [context_msk[0] for t in range(len(hyps))]
-                # expanded_mask = util.mask_translator(expanded_dig_mask, batch_first=True, is_var=True)
-                expanded_mask = context_msk.transpose(1, 0).repeat(len(hyps), 1)
-                expanded_inp_var = inp_var.expand((contxt_len, len(hyps)))
-                if feat is not None:
-                    expanded_feat = expanded_feat.expand((len(hyps), contxt_len_, feat_dim)).contiguous()
-                else:
-                    expanded_feat = None
-        best = None
-        best_alive = None
-        best_archived = None
-        if len(hyps) > 0:
-            best_alive = hyps[0]
-        if len(archived_hyp) > 0:
-            best_archived = archived_hyp[0]
-
-        if best_archived is not None and best_alive is not None:
-            best = best_archived if best_archived.avg_log_prob() > best_alive.avg_log_prob() else best_alive
-        elif best_archived is None:
-            best = best_alive
-        elif best_alive is None:
-            best = best_archived
-        else:
-            raise ("WTF")
-
-        return best.tokens[1:], best.prev_attn[1:], best.p_gens
-        # return decoder_outputs_prob, __ , decoder_outputs, attn_bag

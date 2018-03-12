@@ -1,6 +1,6 @@
 import os
 import pickle
-
+from genut.util.struct import Dict
 import torch
 
 TRAIN_BATCH_SZ = 20
@@ -28,20 +28,26 @@ def preprocess_data(path):
     batch_data(word_order, train, 'train', TRAIN_BATCH_SZ)
 
     # Store dict
-    with open(os.path.join(path, 'vocab.dict'), 'wb') as fd:
-        pickle.dump(word_order, fd)
+    d = Dict()
+    for w in word_order:
+        d.add_word(w)
+    print(len(d))
+    with open(os.path.join(path, str(len(d))+'_ptb.vocab.dict'), 'wb') as fd:
+        pickle.dump(d, fd)
 
 
 def pack_a_batch(dict, bag):
     max_len = len(bag[0])
     batch_sz = len(bag)
-    txt_mat = torch.zeros(batch_sz, max_len)
+    txt_mat = torch.zeros(batch_sz, max_len).long()
     mask = [len(x) for x in bag]
     for bidx, batch in enumerate(bag):
         for widx, w in enumerate(batch):
             id = dict.index(w)
             txt_mat[bidx][widx] = id
-    return [txt_mat, mask]
+    # Pack
+    d = {'txt': txt_mat, 'txt_msk': mask}
+    return d
 
 
 def batch_data(dict, data, name, batch_sz):

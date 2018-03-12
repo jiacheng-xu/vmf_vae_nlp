@@ -6,13 +6,13 @@ class Dict(object):
         self.bias = bias
 
     def has_word(self, word):
-        if self.word2idx.has_key(word):
+        if word in self.word2idx:
             return True
         else:
             return False
 
     def add_word(self, word):
-        if self.word2idx.has_key(word):
+        if word in self.word2idx:
             return self.fword2idx(word)
         else:
             l = len(self.word2idx)

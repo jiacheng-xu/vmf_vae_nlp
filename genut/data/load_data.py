@@ -6,7 +6,7 @@ from genut.util.helper import *
 
 def load_word_dict(opt):
     """
-    Load word dictionary.
+    Load word dictionary. Naming format: str(opt.word_dict_size) + '_' + opt.name + '.vocab.dict'
     :param opt:
     :return:
     """
@@ -15,8 +15,9 @@ def load_word_dict(opt):
     word_dict = read_bin_file(fname)
     opt.word_dict = word_dict
     opt.word_dict_size = len(word_dict)
-    opt.sos = word_dict.fword2idx('<s>')
-    opt.eos = word_dict.fword2idx('<\\s>')
+    # opt.sos = word_dict.fword2idx('<s>')
+    # opt.eos = word_dict.fword2idx('<\\s>')
+    opt.unk = word_dict.fword2idx('<unk>')
     opt.pad = word_dict.fword2idx('<pad>')
     assert opt.pad == 0
     return opt
@@ -44,13 +45,13 @@ def load_data(opt):
     :return: data_patch
     """
     if opt.mode == 0:
-        os.chdir(opt.name + '_trains')
+        os.chdir('trains')
         files = os.listdir('.')
         if opt.dbg:
             files = [x for x in files if x.endswith('000.bin') or x.endswith('001.bin')]
             logging.info("DEBUG TRAIN mode: %d batch of data" % (len(files)))
     elif opt.mode == 1:
-        os.chdir(opt.name + '_tests')
+        os.chdir('tests')
         files = os.listdir('.')
         np.random.RandomState(seed=42).shuffle(files)
         if opt.dbg:
@@ -68,7 +69,7 @@ def load_data(opt):
         cand_ext_dict_size = reset_ext_dict_size(bag)
         if cand_ext_dict_size > opt.ext_dict_size:
             opt.ext_dict_size = cand_ext_dict_size
-        logging.INFO("Extd dict size %d" % opt.ext_dict_size)
+        logging.info("Extd dict size %s" % str(opt.ext_dict_size))
     opt.full_dict_size = opt.word_dict_size + opt.ext_dict_size
     logging.info('Full dict size: %d' % opt.full_dict_size)
     os.chdir('..')
@@ -103,21 +104,13 @@ def load_pretrain_word_embedding(opt):
         logging.warning('Not loading pretraining word embedding.')
     return full_embedding
 
-def load_prev_state(option, model):
-    model_dict = model.state_dict()
+def load_prev_state(option, module,strict_flag=False):
     if option:
-        print('Loading %s' % (option))
-        model.load_state_dict(torch.load(option), strict=False)
-        return model
+        logging.info('Loading module %s' % option)
+        module.load_state_dict(torch.load(option), strict=strict_flag)
+        return module
     else:
-        return model
-        #
-        # # 1. filter out unnecessary keys
-        # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        # # 2. overwrite entries in the existing state dict
-        # model_dict.update(pretrained_dict)
-        # # 3. load the new state dict
-        # model.load_state_dict(pretrained_dict)
+        return module
 
 
 def load_dataset(opt):
@@ -130,8 +123,8 @@ def load_dataset(opt):
 
     os.chdir(opt.data_path)  # chage dir
     opt = load_word_dict(opt)
-    opt = load_tag_dict(opt, 'pos')
-    opt = load_tag_dict(opt, 'ner')
+    # opt = load_tag_dict(opt, 'pos')
+    # opt = load_tag_dict(opt, 'ner')
     opt, data_bag = load_data(opt)
     os.chdir(_cur_path)
     return opt, data_bag

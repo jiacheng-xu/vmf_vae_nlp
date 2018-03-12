@@ -16,14 +16,14 @@ class ArgParser():
         parser.add_argument('--copy', action='store_true', default=False)
         parser.add_argument('--coverage', action='store_true', default=False)
 
-        parser.add_argument('--data_path', action='store', default='/backup2/jcxu/data/cnndm')
+        parser.add_argument('--data_path', action='store', default='/home/jcxu/vae_txt/data/ptb')
 
-        parser.add_argument('--name', action='store', help='Name of the target domain', default='cnndm')
+        parser.add_argument('--name', action='store', help='Name of the target domain', default='ptb')
 
         parser.add_argument('--src_path_vocab', action='store', default=None,
                             help='Must load with restoring model!')
 
-        parser.add_argument('--load_dir', action='store', default='/backup2/jcxu/exp-cnndm')
+        parser.add_argument('--load_dir', action='store', default=None)
 
         parser.add_argument('--load_file', action='store',
                             default=None,
@@ -40,8 +40,8 @@ class ArgParser():
         parser.add_argument('--att', action='store', default='general')
 
         parser.add_argument('--beam_size', action='store', default=5, type=int)
-        parser.add_argument('--word_dict_size', action='store', default=50000, type=int)
-        parser.add_argument('--ext_dict_size', action='store', type=int, default=20)
+        parser.add_argument('--word_dict_size', action='store', default=10000, type=int)
+        parser.add_argument('--ext_dict_size', action='store', type=int, default=0)
         parser.add_argument('--enc_layers', action='store', default=1, type=int)
         parser.add_argument('--dec_layers', action='store', default=1, type=int)
         parser.add_argument('--lr', action='store', default=0.01, type=float)
@@ -58,9 +58,9 @@ class ArgParser():
         parser.add_argument('--schedule', action='store', dest='schedule', type=float, default=1.,
                             help="1. means using ground truth as inpus while 0. means using predicted one.")
 
-        parser.add_argument('--inp_dim', action='store', default=100, type=int)
+        parser.add_argument('--inp_dim', action='store', default=5, type=int)
         parser.add_argument('--tag_dim', action='store', default=20, type=int)
-        parser.add_argument('--hid_dim', action='store', default=400, type=int)
+        parser.add_argument('--hid_dim', action='store', default=5, type=int)
 
         parser.add_argument('--clip', action='store', default=2, type=float)
 
