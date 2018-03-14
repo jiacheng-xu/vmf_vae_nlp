@@ -54,6 +54,7 @@ def load_data(opt):
         os.chdir('tests')
         files = os.listdir('.')
         np.random.RandomState(seed=42).shuffle(files)
+        files = files[:200] # TODO
         if opt.dbg:
             files = files[:100]
             logging.info("DEBUG EVAL mode: %d batch of data" % (len(files)))
@@ -62,7 +63,11 @@ def load_data(opt):
         raise Exception
 
     files = [fname for fname in files if fname.endswith('.bin')]
-    bag = concurrent_io(read_bin_file, files)
+    logging.info('Total %d batch to load'%len(files))
+    # bag = concurrent_io(read_bin_file, files)
+    bag= []
+    for f in files:
+        bag.append(read_bin_file(f))
 
     os.chdir('..')
     if opt.mode == 0:

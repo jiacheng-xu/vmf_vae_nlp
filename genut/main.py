@@ -1,15 +1,12 @@
 from genut.data.load_data import *
-from genut.util.argparser import ArgParser
-from genut.models.seq2seq import Seq2seq
-from genut.models.lm import RNNLM
 # from genut.models.seq2seq_vae import
 from genut.data.load_data import load_prev_state
-
-from genut.util.eval import Tester
+from genut.models.lm import RNNLM
+from genut.util.argparser import ArgParser
+from genut.util.eval_lm import Tester
 from genut.util.train_lm import LMTrainer
 
 if __name__ == "__main__":
-    torch.backends.cudnn.enabled = False
 
     ap = ArgParser()
 
@@ -47,7 +44,7 @@ if __name__ == "__main__":
         model = model.cuda()
 
     if opt.load_dir is not None and opt.load_file is not None:
-        model.enc = load_prev_state(opt.load_dir + '/' + opt.load_file + '_enc', model.enc)
+        # model.enc = load_prev_state(opt.load_dir + '/' + opt.load_file + '_enc', model.enc)
         model.dec = load_prev_state(opt.load_dir + '/' + opt.load_file + '_dec', model.dec)
         model.emb = load_prev_state(opt.load_dir + '/' + opt.load_file + '_emb', model.emb)
         # try:
@@ -65,14 +62,12 @@ if __name__ == "__main__":
     print("Model Initialized.")
     if opt.mode == TEST_FLAG:
         model.eval()
-        # TODO
-        os.chdir('/home/jcxu/ut-seq2seq/pythonrouge')
-        s2s_test = Tester(opt, model,
-                                     data=data_patch, write_file='_'.join([str(opt.max_len_enc), str(opt.max_len_dec),
-                                                                         str(opt.min_len_dec), opt.load_file, opt.name,
-                                                                         str(opt.beam_size), str(opt.avoid), 'result']))
+        lm_test = Tester(opt, model,
+                         data=data_patch,
+                         write_file='_'.join([opt.load_file, 'result']))
 
-        s2s_test.test_iter_non_batch()
+        ppl = lm_test.test_iters()
+        logging.info("Evaluation PPL: %f" % ppl)
 
     elif opt.mode == TRAIN_FLAG:
         model.train()

@@ -667,6 +667,7 @@ def concurrent_io(func, files):
     :return: output files.
     """
     cores = multiprocessing.cpu_count()
+    cores = 3
     pool = multiprocessing.Pool(processes=cores)
     output = pool.map(func, files)
     pool.close()

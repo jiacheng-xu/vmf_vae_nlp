@@ -1,8 +1,11 @@
-import datetime
+import os
+import logging
+import math
 import os
 
 import numpy as np
 import torch
+from torch import nn
 from torch.autograd import Variable as Var
 
 from genut.util.helper import msk_list_to_mat
@@ -13,10 +16,10 @@ class LMTrainer(Trainer):
     def __init__(self, opt, model, data):
         super().__init__(opt, model, data)
         # self.logger = Logger(opt.print_every, self.n_batch)
-        weight = torch.ones(opt.full_dict_size)
-        weight[0] = 0
-        assert 0 == opt.word_dict.fword2idx('<pad>')
-
+        # weight = torch.ones(opt.full_dict_size)
+        # weight[0] = 0
+        # assert 0 == opt.word_dict.fword2idx('<pad>')
+        self.crit = nn.CrossEntropyLoss(size_average=True, ignore_index=0)
         self.opt = opt
         self.model = model
         self.train_bag = data
@@ -55,23 +58,32 @@ class LMTrainer(Trainer):
         pred_prob = decoder_outputs_prob.view(target_len * batch_size, -1)
         # print(inp_var)
         seq_first_inp_var = inp_var.transpose(1, 0).contiguous()
-        gold_dist = seq_first_inp_var.view(target_len * batch_size, 1)
+        gold_dist = seq_first_inp_var.view(target_len * batch_size)
         if self.opt.use_cuda:
             gold_dist = gold_dist.cuda()
 
-        losses = -torch.gather(pred_prob, 1, gold_dist)
+        loss = self.crit(pred_prob, gold_dist)
+        # print(gold_dist.size())
+        # print(pred_prob.size())
+
+        # losses = -torch.gather(pred_prob, 1, gold_dist)
+
+        # ppl = LMTrainer.calc_ppl(losses,valid_pos_mask,target_len , batch_size)
         # print(valid_pos_mask.size())
         # print(losses.size())
-        losses = losses * valid_pos_mask
+        # losses = losses * valid_pos_mask
         # Then for -inf mask. a word neither exists in vocab nor exists in source article will be
         # -inf.
         # inf_mask = losses.le(10000)
         # nll_loss = torch.masked_select(losses, inf_mask)
-        nll_loss = torch.mean(losses)
+        # nll_loss = torch.mean(losses)
 
-        nll_loss.backward()
+        loss.backward()
+
         torch.nn.utils.clip_grad_norm(self.model.parameters(), self.clip)
         self.optimizer.step()
+
+        return loss.data[0], math.exp(loss.data[0])
 
     def train_iters(self):
         """
@@ -105,9 +117,14 @@ class LMTrainer(Trainer):
                     # inp_var = [x.contiguous().cuda() for x in inp_var]
                     inp_var = inp_var.contiguous().cuda()
 
-                self.func_train(inp_var, inp_msk)
+                nll, ppl = self.func_train(inp_var, inp_msk)
+
+                if idx % self.opt.print_every == 0:
+                    logging.info('NLL:%.2f \tPPL:%s' % (nll, str(ppl)))
+
 
                 if idx % self.opt.save_every == 0:
+
                     #######
                     # Saving
                     # End of Epo
@@ -115,19 +132,31 @@ class LMTrainer(Trainer):
                     # print_loss_avg = sum(self.logger.current_epo['loss']) / self.logger.current_epo['count']
                     os.chdir(self.opt.save_dir)
 
-                    name_string = '%d_%.3f_%s_Cop%s_Cov%s_%dx%s_%s%s_E%d_D%d_DL%s_%01.1f_SL%s_%01.1f_Attn%s_%01.1f_Feat%s'.lower() % (
-                        epo, print_loss_avg,
-                        self.model.opt.full_dict_size, datetime.datetime.now().strftime("%B%d%I%M")
-                    )
-                    print(name_string)
+                    name_string = '%d'.lower() % (epo)
+                    logging.info("Saving in epo %s" % name_string)
                     torch.save(self.model.emb.state_dict(),
                                name_string + '_emb')
-                    torch.save(self.model.enc.state_dict(), name_string + '_enc')
+                    # torch.save(self.model.enc.state_dict(), name_string + '_enc')
                     torch.save(self.model.dec.state_dict(), name_string + '_dec')
                     torch.save(self.model.opt, name_string + '_opt')
 
                     os.chdir('..')
 
     @staticmethod
-    def calc_ppl(inp, inp_msk):
-        pass
+    def calc_ppl(inp, inp_msk, target_len, batch_size):
+        exp_inp = inp * (-1)
+        exp_inp = exp_inp.view(target_len, batch_size)
+        inp_msk = inp_msk.view(target_len, batch_size)
+        ppl_bag = []
+        for bidx in range(batch_size):
+            probs = exp_inp[:, bidx]
+            # print(probs)
+            inps = inp_msk[:, bidx]
+            n = torch.sum(inps).int().data[0]
+            accum_prob = Var(torch.DoubleTensor([0]))
+            for p in probs:
+                accum_prob += p.double()
+            accum_prob = torch.exp(accum_prob)
+            ppl = torch.pow(accum_prob, -1. / n)
+            ppl_bag.append(ppl)
+        return sum(ppl_bag) / len(ppl_bag)

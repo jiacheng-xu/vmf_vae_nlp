@@ -87,19 +87,19 @@ class SimpleRNNDecoder(nn.Module):
         hidden_state_vocab = self.W_out_0(hidden_state_vocab)
         # prob_vocab = F.softmax(hidden_state_vocab)
 
-        max_hidden_state_vocab = torch.max(hidden_state_vocab,
-                                           dim=1, keepdim=True)[0]
-        hidden_state_vocab = hidden_state_vocab - max_hidden_state_vocab
-        prob_vocab = F.softmax(hidden_state_vocab)  # prob over vocab
+        # max_hidden_state_vocab = torch.max(hidden_state_vocab,
+        #                                    dim=1, keepdim=True)[0]
+        # hidden_state_vocab = hidden_state_vocab - max_hidden_state_vocab
+        # prob_vocab = F.softmax(hidden_state_vocab)  # prob over vocab
+        #
+        # prob_final = torch.log(prob_vocab)
 
-        prob_final = torch.log(prob_vocab)
-
-        return current_raw_state, prob_final
+        return current_raw_state, hidden_state_vocab
         # current_state_h is raw hidden before attention
         # prob_final is the final probability
 
     def forward(self,
-                h_t,
+                state,
                 tgt_var, tgt_msk,
                 aux):
         batch_size, tgt_len = tgt_var.size()
@@ -116,7 +116,7 @@ class SimpleRNNDecoder(nn.Module):
 
         for t in range(tgt_len):
             state, prob_final = \
-                self.run_forward_step(decoder_input, h_t)
+                self.run_forward_step(decoder_input, state)
 
             decoder_outputs_prob[t] = prob_final
 
@@ -129,11 +129,25 @@ class SimpleRNNDecoder(nn.Module):
                 if random.random() >= self.opt.schedule:
                     decoder_input = topi
                     decoder_input = Var(decoder_input.unsqueeze(0))
-                    print(decoder_input.size())
+                    # print(decoder_input.size())
                 else:
                     decoder_input = Var(tgt_var.data[:,t]).unsqueeze(0)
             else:   # eval mode
-                decoder_input = topi
-                decoder_input = Var(decoder_input.unsqueeze(0))
+                decoder_input = Var(tgt_var[:, t]).unsqueeze(0)
+                # decoder_input = topi
+                # decoder_input = Var(decoder_input.unsqueeze(0))
 
         return decoder_outputs_prob, decoder_outputs
+
+
+    def init_weight(self):
+        # kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros'
+        if self.rnn_type == 'lstm':
+
+            nn.init.xavier_uniform(self.rnn.weight_ih, gain=1)
+            nn.init.xavier_uniform(self.rnn.weight_hh, gain=1)
+
+            torch.nn.init.constant(self.rnn.bias_ih,0)
+            nn.init.constant(self.rnn.bias_hh, 0)
+        elif self.rnn_type == 'gru':
+            nn.init.xavier_uniform(self.rnn.weight.data, gain=1)

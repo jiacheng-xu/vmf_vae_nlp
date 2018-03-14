@@ -8,7 +8,7 @@ class ArgParser():
 
         parser.add_argument('--start_epo', action='store', default=1, type=int)
         parser.add_argument('--avoid', action='store_true', default=False)
-        parser.add_argument('--save_dir', action='store', default='/backup2/jcxu/exp-cnndm', type=str)
+        parser.add_argument('--save_dir', action='store', default='/home/jcxu/vae_txt/exp-ptb', type=str)
         parser.add_argument('--mode', action='store', default=0, type=int,
                             help='TRAIN_FLAG=0, TEST_FLAG = 1')
         parser.add_argument('--dbg', action='store_true', default=False)
@@ -32,7 +32,7 @@ class ArgParser():
         parser.add_argument('--use_cuda', action='store_false')
         parser.add_argument('--feat_num', action='store', default=1, type=int,
                             help='Feature type num including original word embedding.')
-        parser.add_argument('--n_epo', action='store', default=25, type=int)
+        parser.add_argument('--n_epo', action='store', default=40, type=int)
 
         parser.add_argument('--enc', action='store', default='lstm',
                             help='lstm: Bi-LSTM; dconv: Dilated Convolution; conv')
@@ -40,7 +40,7 @@ class ArgParser():
         parser.add_argument('--att', action='store', default='general')
 
         parser.add_argument('--beam_size', action='store', default=5, type=int)
-        parser.add_argument('--word_dict_size', action='store', default=10000, type=int)
+        parser.add_argument('--word_dict_size', action='store', default=10001, type=int)
         parser.add_argument('--ext_dict_size', action='store', type=int, default=0)
         parser.add_argument('--enc_layers', action='store', default=1, type=int)
         parser.add_argument('--dec_layers', action='store', default=1, type=int)
@@ -52,20 +52,20 @@ class ArgParser():
 
         parser.add_argument('--use_drop', action='store', default=True, type=bool)
         parser.add_argument('--use_drop_emb', action='store', type=bool, default=True)
-        parser.add_argument('--dropout', action='store', type=float, default=0.1)
-        parser.add_argument('--dropout_emb', action='store', type=float, default=0.1)
+        parser.add_argument('--dropout', action='store', type=float, default=0.5)
+        parser.add_argument('--dropout_emb', action='store', type=float, default=0.5)
 
         parser.add_argument('--schedule', action='store', dest='schedule', type=float, default=1.,
                             help="1. means using ground truth as inpus while 0. means using predicted one.")
 
-        parser.add_argument('--inp_dim', action='store', default=5, type=int)
-        parser.add_argument('--tag_dim', action='store', default=20, type=int)
-        parser.add_argument('--hid_dim', action='store', default=5, type=int)
+        parser.add_argument('--inp_dim', action='store', default=500, type=int)
+        parser.add_argument('--tag_dim', action='store', default=0, type=int)
+        parser.add_argument('--hid_dim', action='store', default=500, type=int)
 
-        parser.add_argument('--clip', action='store', default=2, type=float)
+        parser.add_argument('--clip', action='store', default=5, type=float)
 
-        parser.add_argument('--print_every', action='store', default=3, type=int)
-        parser.add_argument('--save_every', action='store', default=8000, type=int)
+        parser.add_argument('--print_every', action='store', default=100, type=int)
+        parser.add_argument('--save_every', action='store', default=2000, type=int)
         parser.add_argument('--output_path', action='store', default=os.getcwd())
         parser.add_argument('--decoding', action='store', default='beam')
         parser.add_argument('--pretrain_word', action='store', default=None,

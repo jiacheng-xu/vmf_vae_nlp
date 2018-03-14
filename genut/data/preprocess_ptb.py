@@ -12,6 +12,12 @@ def preprocess_data(path):
     valid = read_txt_file(os.path.join(path, 'valid.txt'))
     test = read_txt_file(os.path.join(path, 'test.txt'))
 
+    def _append_eos(list):
+        for idx in range(len(list)):
+            list[idx].append('<eos>')
+    _append_eos(train)
+    _append_eos(valid)
+    _append_eos(test)
     # Build dict
     tmp_dict = {}
     tmp_dict = count(tmp_dict, train)
