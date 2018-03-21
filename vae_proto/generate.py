@@ -4,9 +4,9 @@
 # This file generates new sentences sampled from the language model
 #
 ###############################################################################
-
+import logging
 import argparse
-
+import math
 import torch
 from torch.autograd import Variable
 from vae_proto import vae_rnn
@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 Language Model'
 
 # Model parameters.
 parser.add_argument('--model', type=str,default='vae')
-parser.add_argument('--eval_batch_size', type=int, default=10, help='evaluation batch size')
+parser.add_argument('--eval_batch_size', type=int, default=5, help='evaluation batch size')
 parser.add_argument('--data', type=str, default='../data/ptb',
                     help='location of the data corpus')
 parser.add_argument('--checkpoint', type=str, default='model.pt',
@@ -35,6 +35,11 @@ parser.add_argument('--temperature', type=float, default=1.0,
 parser.add_argument('--log-interval', type=int, default=100,
                     help='reporting interval')
 args = parser.parse_args()
+
+fname = 'Result_Model_{}_checkpoint_{}.log'.format(args.model,args.checkpoint)
+print(fname)
+
+logging.basicConfig(filename=fname, level=logging.INFO)
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
@@ -62,23 +67,25 @@ ntokens = len(corpus.dictionary)
 
 test_data = util.make_batch(args,corpus.test, args.eval_batch_size, shuffle=False)
 
-util.decode_inputless(args, model, corpus, test_data)
+nll = util.decode_inputless(args, model, corpus, test_data)
+ppl = math.exp(nll)
+print(nll, ppl)
 
 
-hidden = model.init_hidden(1)
-input = Variable(torch.rand(1, 1).mul(ntokens).long(), volatile=True)
-if args.cuda:
-    input.data = input.data.cuda()
-
-with open(args.outf, 'w') as outf:
-    for i in range(args.words):
-        output, hidden = model(input, hidden)
-        word_weights = output.squeeze().data.div(args.temperature).exp().cpu()
-        word_idx = torch.multinomial(word_weights, 1)[0]
-        input.data.fill_(word_idx)
-        word = corpus.dictionary.idx2word[word_idx]
-
-        outf.write(word + ('\n' if i % 20 == 19 else ' '))
-
-        if i % args.log_interval == 0:
-            print('| Generated {}/{} words'.format(i, args.words))
+# hidden = model.init_hidden(1)
+# input = Variable(torch.rand(1, 1).mul(ntokens).long(), volatile=True)
+# if args.cuda:
+#     input.data = input.data.cuda()
+#
+# with open(args.outf, 'w') as outf:
+#     for i in range(args.words):
+#         output, hidden = model(input, hidden)
+#         word_weights = output.squeeze().data.div(args.temperature).exp().cpu()
+#         word_idx = torch.multinomial(word_weights, 1)[0]
+#         input.data.fill_(word_idx)
+#         word = corpus.dictionary.idx2word[word_idx]
+#
+#         outf.write(word + ('\n' if i % 20 == 19 else ' '))
+#
+#         if i % args.log_interval == 0:
+#             print('| Generated {}/{} words'.format(i, args.words))
