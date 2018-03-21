@@ -29,8 +29,8 @@ def preprocess_data(path):
     os.chdir(path)
 
     # Batch the data
-    batch_data(word_order, test, 'test', 1)
-    batch_data(word_order, valid, 'valid', 1)
+    batch_data(word_order, test, 'test', 10)
+    batch_data(word_order, valid, 'valid', 10)
     batch_data(word_order, train, 'train', TRAIN_BATCH_SZ)
 
     # Store dict

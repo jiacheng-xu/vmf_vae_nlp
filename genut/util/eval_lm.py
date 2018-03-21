@@ -34,28 +34,29 @@ class Tester:
             batch_order = np.random.RandomState(seed=42).permutation(self.n_batch)
             # batch_order = np.random.permutation(self.n_batch)
 
-            accumulated_ppl = []
-
+            accumulated_ppl = 0
+            test_len=0
             for idx, batch_idx in enumerate(batch_order):
                 current_batch = self.test_bag[batch_idx]
                 count += 1
 
                 inp_var = current_batch['txt']
                 inp_mask = current_batch['txt_msk']
-
+                test_len += inp_mask[0]
                 batch_size = inp_var.size()[0]
                 assert batch_size == 1
 
-                ppl, decoder_output = self.func_test(inp_var, inp_mask)
-                accumulated_ppl.append(ppl)
-                logging.info(ppl)
+                nll, decoder_output = self.func_test(inp_var, inp_mask)
+                accumulated_ppl += nll
+                logging.info(nll)
+
                 test_id += 1
 
         except KeyboardInterrupt:
             print("Interrupted Keyboard!")
 
-        final_ppl = sum(accumulated_ppl)/len(accumulated_ppl)
-        return final_ppl
+        final_ppl = accumulated_ppl / test_len
+        return math.exp(final_ppl)
 
     def func_test(self, inp_var, inp_msk):
         target_len = inp_msk[0]
@@ -75,6 +76,6 @@ class Tester:
             gold_dist = gold_dist.cuda()
 
         loss = self.crit(pred_prob, gold_dist)
-
-        return math.exp(loss.data[0]), decoder_outputs
+        loss = loss * target_len
+        return loss.data[0], decoder_outputs
 

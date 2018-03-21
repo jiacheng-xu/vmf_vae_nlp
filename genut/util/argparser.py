@@ -62,7 +62,7 @@ class ArgParser():
         parser.add_argument('--tag_dim', action='store', default=0, type=int)
         parser.add_argument('--hid_dim', action='store', default=500, type=int)
 
-        parser.add_argument('--clip', action='store', default=5, type=float)
+        parser.add_argument('--clip', action='store', default=1, type=float)
 
         parser.add_argument('--print_every', action='store', default=100, type=int)
         parser.add_argument('--save_every', action='store', default=2000, type=int)

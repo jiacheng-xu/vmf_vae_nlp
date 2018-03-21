@@ -131,11 +131,9 @@ class SimpleRNNDecoder(nn.Module):
                     decoder_input = Var(decoder_input.unsqueeze(0))
                     # print(decoder_input.size())
                 else:
-                    decoder_input = Var(tgt_var.data[:,t]).unsqueeze(0)
+                    decoder_input = Var(tgt_var[:,t]).unsqueeze(0)
             else:   # eval mode
                 decoder_input = Var(tgt_var[:, t]).unsqueeze(0)
-                # decoder_input = topi
-                # decoder_input = Var(decoder_input.unsqueeze(0))
 
         return decoder_outputs_prob, decoder_outputs
 

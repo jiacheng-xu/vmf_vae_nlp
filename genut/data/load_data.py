@@ -46,15 +46,31 @@ def load_data(opt):
     """
     if opt.mode == 0:
         os.chdir('trains')
-        files = os.listdir('.')
+        train_files = os.listdir('.')
         if opt.dbg:
             files = [x for x in files if x.endswith('000.bin') or x.endswith('001.bin')]
             logging.info("DEBUG TRAIN mode: %d batch of data" % (len(files)))
+        train_files = [fname for fname in train_files if fname.endswith('.bin')]
+        logging.info('Total %d batch to load' % len(train_files))
+        # bag = concurrent_io(read_bin_file, files)
+        bag = []
+        for f in train_files:
+            bag.append(read_bin_file(f))
+
+        os.chdir('..')
+
+        os.chdir('tests')
+        test_files = os.listdir('.')
+        test_files = [fname for fname in test_files if fname.endswith('.bin')]
+        test_bag = []
+        for f in test_files:
+            test_bag.append(read_bin_file(f))
+        os.chdir('..')
     elif opt.mode == 1:
         os.chdir('tests')
         files = os.listdir('.')
         np.random.RandomState(seed=42).shuffle(files)
-        files = files[:200] # TODO
+        # files = files[:200] # TODO
         if opt.dbg:
             files = files[:100]
             logging.info("DEBUG EVAL mode: %d batch of data" % (len(files)))
@@ -62,12 +78,7 @@ def load_data(opt):
         logging.error('Unrecognizable mode. 0 - train 1 - test')
         raise Exception
 
-    files = [fname for fname in files if fname.endswith('.bin')]
-    logging.info('Total %d batch to load'%len(files))
-    # bag = concurrent_io(read_bin_file, files)
-    bag= []
-    for f in files:
-        bag.append(read_bin_file(f))
+
 
     os.chdir('..')
     if opt.mode == 0:
@@ -78,7 +89,7 @@ def load_data(opt):
     opt.full_dict_size = opt.word_dict_size + opt.ext_dict_size
     logging.info('Full dict size: %d' % opt.full_dict_size)
     os.chdir('..')
-    return opt, bag
+    return opt, [bag,test_bag]
 
 def load_pretrain_word_embedding(opt):
     """

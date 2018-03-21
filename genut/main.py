@@ -47,17 +47,6 @@ if __name__ == "__main__":
         # model.enc = load_prev_state(opt.load_dir + '/' + opt.load_file + '_enc', model.enc)
         model.dec = load_prev_state(opt.load_dir + '/' + opt.load_file + '_dec', model.dec)
         model.emb = load_prev_state(opt.load_dir + '/' + opt.load_file + '_emb', model.emb)
-        # try:
-        #     model.emb = load_prev_state(opt.load_dir + '/' + opt.load_file + '_emb', model.emb)
-        #
-        # except TypeError:
-        #     print("Trying another method")
-        #     model.emb = util.load_prev_model(opt.load_dir + '/' + opt.load_file + '_emb', model.emb)
-        #
-        # try:
-        #     model.feat = util.load_prev_model(opt.load_dir + '/' + opt.load_file + '_feat', model.feat)
-        # except IOError:
-        #     print('IOError')
 
     print("Model Initialized.")
     if opt.mode == TEST_FLAG:
