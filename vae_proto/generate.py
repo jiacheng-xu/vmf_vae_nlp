@@ -17,7 +17,7 @@ from vae_proto import util
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 Language Model')
 
 # Model parameters.
-parser.add_argument('--model', type=str,default='vae')
+parser.add_argument('--model', type=str,default='lstm')
 parser.add_argument('--eval_batch_size', type=int, default=5, help='evaluation batch size')
 parser.add_argument('--data', type=str, default='../data/ptb',
                     help='location of the data corpus')

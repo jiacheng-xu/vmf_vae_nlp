@@ -53,6 +53,44 @@ class RNNModel(nn.Module):
         decoded = self.decoder(output.view(output.size(0) * output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
 
+    def forward_decode(self, args,input,ntokens):
+
+        seq_len = input.size()[0]
+        batch_sz = input.size()[1]
+        # emb: seq_len, batchsz, hid_dim
+        # hidden: ([2(nlayers),10(batchsz),200],[])
+        hidden = None
+        outputs_prob = Variable(torch.FloatTensor(seq_len, batch_sz, ntokens))
+        if args.cuda:
+            outputs_prob = outputs_prob.cuda()
+
+        outputs = torch.LongTensor(seq_len, batch_sz)
+
+        # First time step sos
+        sos = Variable(torch.ones(batch_sz).long())
+        if args.cuda:
+            sos = sos.cuda()
+        emb_t = self.drop(self.encoder(sos))
+
+        for t in range(seq_len):
+            # input (seq_len, batch, input_size)
+            # print(emb_t.size())
+            emb_t = emb_t.unsqueeze(0)
+            output, hidden = self.rnn(emb_t, hidden)
+            output_prob = self.decoder(self.drop(output))
+            # print(output_prob.size())
+            output_prob = output_prob.squeeze(0)
+            outputs_prob[t] = output_prob
+            value, ind =torch.topk(output_prob,1,dim=1)
+            # print(ind.size())
+            emb_t = self.drop(self.encoder(ind.squeeze(1)))
+            # print(emb_t.size())
+            outputs[t] = ind.squeeze(1).data
+            # exit()
+        return outputs_prob, outputs
+
+
+
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
         if self.rnn_type == 'LSTM':

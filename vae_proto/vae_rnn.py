@@ -6,7 +6,7 @@ from torch.autograd import Variable as Var
 class VAEModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, lat_dim=33):
+    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, lat_dim=500):
         super(VAEModel, self).__init__()
 
         self.drop = nn.Dropout(dropout)
@@ -64,7 +64,10 @@ class VAEModel(nn.Module):
             eps = Variable(std.data.new(std.size()).normal_())
             return eps.mul(std).add_(mu)
         else:
-            return mu
+            std = logvar.mul(0.5).exp_()
+            eps = Variable(std.data.new(std.size()).normal_())
+            return eps.mul(std).add_(mu)
+            # return mu
 
     def enc(self, input):
         """
@@ -132,7 +135,7 @@ class VAEModel(nn.Module):
             # print(emb_t.size())
             outputs[t] = ind.squeeze(1).data
             # exit()
-        return outputs_prob, outputs
+        return outputs_prob, outputs, mu, logvar
 
     def convert_z_to_hidden(self, z, batch_sz):
         h = self.z_to_h(z).view(batch_sz, 2, -1).permute(1, 0, 2).contiguous()

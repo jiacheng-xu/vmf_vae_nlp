@@ -13,7 +13,8 @@ from vae_proto import util
 parser = argparse.ArgumentParser(description='PyTorch LSTM Language Model')
 
 parser.add_argument('--data', type=str, default='../data/ptb', help='location of the data corpus')
-parser.add_argument('--model', type=str, default='lstm', help='lstm or vae')
+parser.add_argument('--model', type=str, default='vae', help='lstm or vae')
+parser.add_argument('--fly', action='store_true', help='w/o previous ground truth = inputless decode', default=False)
 
 parser.add_argument('--emsize', type=int, default=200, help='size of word embeddings')
 
@@ -51,8 +52,10 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
     else:
         torch.cuda.manual_seed(args.seed)
-fname = 'Emb{}_Hid{}_nlayer{}_lr{}_drop{}_tied{}_klw{}.log'.format(args.emsize, args.nhid, args.nlayers, args.lr,
-                                                                   args.dropout, args.tied, args.kl_weight)
+fname = 'Model_{}_Fly_{}_Emb{}_Hid{}_nlayer{}_lr{}_drop{}_tied{}_klw{}.log'.format(args.model, args.fly, args.emsize,
+                                                                                   args.nhid, args.nlayers, args.lr,
+                                                                                   args.dropout, args.tied,
+                                                                                   args.kl_weight)
 print(fname)
 
 logging.basicConfig(filename=fname, level=logging.INFO)
@@ -92,18 +95,21 @@ print('Dict size: %d' % ntokens)
 
 if args.model.lower() == 'lstm':
     from vae_proto import pure_rnn
+
     model = pure_rnn.RNNModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
 elif args.model.lower() == 'vae':
     from vae_proto import vae_rnn
-    model = vae_rnn.VAEModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
+
+    model = vae_rnn.VAEModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied,
+                             lat_dim=args.nhid)
 else:
     raise NotImplementedError
 
 args.save = args.model + args.save
-import os
-if os.path.isfile(args.save):
-    with open(args.save, 'rb') as f:
-        model = torch.load(f)
+
+# if os.path.isfile(args.save):
+#     with open(args.save, 'rb') as f:
+#         model = torch.load(f)
 
 if args.cuda:
     model.cuda()
@@ -143,14 +149,24 @@ def train():
         seq_len, bsz = data.size()
 
         model.zero_grad()
+
         # output, hidden = model(data, hidden)
         if args.model == 'lstm':
-            output, hidden = model(data)
+            if args.fly:
+                output, _ = model.forward_decode(args, data, ntokens)
+            else:
+                output, hidden = model(data)
+
             loss = criterion(output.view(-1, ntokens), targets)
             total_loss = loss
             total_loss.backward()
+
         elif args.model == 'vae':
-            output, mu, logvar = model(data)
+            if args.fly:
+                output, _, mu, logvar = model.forward_decode(args, data, ntokens)
+            else:
+                output, mu, logvar = model(data)
+
             loss = criterion(output.view(-1, ntokens), targets)
             kld = vae_rnn.kld(mu, logvar, 1)
 

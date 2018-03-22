@@ -102,14 +102,16 @@ def evaluate(args, model, corpus, data_source, crit=nn.CrossEntropyLoss(ignore_i
     for batch, i in enumerate(range(0, len(data_source))):
         data, targets = get_batch(args, data_source, i, evaluation=True)
         seq_len, bsz = data.size()
-        output =  model(data)[0]
+        if args.fly:
+            output = model.forward_decode(args, data, ntokens)[0]
+        else:
+            output =  model(data)[0]
         output_flat = output.view(-1, ntokens)
         total_loss += seq_len * bsz * crit(output_flat, targets).data
         cnt += seq_len * bsz
     return total_loss[0] / cnt
 
 def decode_inputless(args, model, corpus, data_source,crit=nn.CrossEntropyLoss(ignore_index=0)):
-    model.eval()
     ntokens = len(corpus.dictionary)
     total_loss = 0
     cnt = 0
@@ -117,7 +119,7 @@ def decode_inputless(args, model, corpus, data_source,crit=nn.CrossEntropyLoss(i
         for batch, i in enumerate(range(0, len(data_source))):
             data, targets = get_batch(args, data_source, i, evaluation=True)
             seq_len, bsz = data.size()
-            outputs_prob, outputs = model.forward_decode(args, data, ntokens)
+            outputs_prob, outputs = model.forward_decode(args, data, ntokens)[0:2]
 
             # Loss
             output_flat = outputs_prob.view(-1, ntokens)
