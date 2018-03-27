@@ -7,12 +7,13 @@ from torch.autograd import Variable as Var
 class VAEModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, dec_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, lat_dim=500):
+    def __init__(self, args, dec_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, lat_dim=500):
         super(VAEModel, self).__init__()
 
         self.lat_dim = lat_dim
         self.nhid = nhid
         self.nlayers = nlayers
+        self.ninp= ninp
 
         # VAE shared param
         self.emb = nn.Embedding(ntoken, ninp)
@@ -20,24 +21,28 @@ class VAEModel(nn.Module):
         # VAE recognition part
         # BLSTM
         self.enc_rnn = nn.LSTM(ninp, nhid, nlayers, bidirectional=True, dropout=dropout)
-
+        self.drop = nn.Dropout(dropout)  # Need explicit dropout
         self.fc_mu = nn.Linear(2 * nhid * nlayers * 2, lat_dim)  # 2 for bidirect, 2 for h and c
         self.fc_logvar = nn.Linear(2 * nhid * nlayers * 2, lat_dim)
 
+        self.z_to_h = nn.Linear(lat_dim, nhid * nlayers)
+        self.z_to_c = nn.Linear(lat_dim, nhid * nlayers)
+
         # VAE generation part
+        self.dec_type = dec_type
         self.decoder = nn.Linear(nhid, ntoken)
         # LSTM
-        if dec_type =='lstm':
+        if dec_type == 'lstm':
 
-            self.z_to_h = nn.Linear(lat_dim, nhid * nlayers)
-            self.z_to_c = nn.Linear(lat_dim, nhid * nlayers)
+            if args.fly:
+                self.rnn = nn.LSTMCell(ninp + nhid, nhid, nlayers)
+            else:
+                self.rnn = nn.LSTM(ninp + nhid, nhid, nlayers,dropout=dropout)
 
-            self.rnn = nn.LSTMCell(ninp + nhid, nhid, nlayers)
-            self.drop = nn.Dropout(dropout)             # Need explicit dropout
         # or
         # BoW
         elif dec_type == 'bow':
-            pass
+            self.linear = nn.Linear(nhid+ninp, nhid)
         else:
             raise NotImplementedError
 
@@ -62,42 +67,74 @@ class VAEModel(nn.Module):
         else:
             return mu
 
-    def enc(self, input):
+    def blstm_enc(self, input):
         """
-        Encoding the input, output embedding, hidden (transformed from z), mu, logvar
+        Encoding the input
         :param input: input sequence
-        :return: embedding, hidden(from z), mu, logvar
+        :return:
+        embedding: seq_len, batch_sz, hid_dim
+        hidden(from z): (2, batch_sz, 150)
+        mu          : batch_sz, hid_dim
+        logvar      : batch_sz, hid_dim
         """
         batch_sz = input.size()[1]
-        emb = self.drop(self.encoder(input))
+        emb = self.drop(self.emb(input))
 
         mu, logvar = self.encode(emb)
-        z = self.reparameterize(mu, logvar)
+        z = self.reparameterize(mu, logvar)     # z: batch, hid_dim
 
         hidden = self.convert_z_to_hidden(z, batch_sz)
         return emb, hidden, mu, logvar
 
     def encode(self, emb):
+        """
+
+        :param emb:
+        :return: batch_sz, lat_dim
+        """
         batch_sz = emb.size()[1]
         # self.enc_rnn.flatten_parameters()
         _, hidden = self.enc_rnn(emb)
-        print(hidden)
         # num_layers * num_directions, batch, hidden_size
-        x = torch.cat(hidden, dim=0).permute(1, 0, 2).contiguous().view(batch_sz, -1)
+        h = hidden[0]
+        c = hidden[1]
+        assert h.size()[0] == self.nlayers*2
+        assert h.size()[1] == batch_sz
+        x = torch.cat((h,c), dim=0).permute(1, 0, 2).contiguous().view(batch_sz, -1)
         return self.fc_mu(x), self.fc_logvar(x)
 
     def forward(self, input):
+        """
+
+        :param input: seq_len, batch_sz
+        :return:
+        """
 
         batch_sz = input.size()[1]
         seq_len = input.size()[0]
-        emb, hidden, mu, logvar = self.enc(input)
-        lat_to_cat = hidden[0][0].unsqueeze(0).expand(seq_len, batch_sz, -1)
-        # print(emb.size())
-        # print(lat_to_cat.size())
-        emb = torch.cat([emb, lat_to_cat], dim=2)
-        # print(self.rnn)
-        # exit()
-        output, hidden = self.rnn(emb, hidden)
+
+        emb, hidden, mu, logvar = self.blstm_enc(input)
+
+        if self.dec_type == 'lstm':
+            lat_to_cat = hidden[0][0].unsqueeze(0).expand(seq_len, batch_sz, -1)
+            emb = torch.cat([emb, lat_to_cat], dim=2)
+            output, hidden = self.rnn(emb, hidden)
+        elif self.dec_type =='bow':
+            # avg embedding: seq_len, batch_sz, hid_dim
+            emb = torch.mean(emb, dim=0)        # torch.Size([20, 39])
+            lat_to_cat = hidden[0][0]           # torch.Size([20, 49])
+            fusion = torch.cat((emb, lat_to_cat), dim=1) # torch.Size([20, 39+49])
+            # output seq_len, batch, hidden_size * num_directions
+            output = Variable(torch.FloatTensor(seq_len, batch_sz, self.nhid ))
+            for t in range(seq_len):
+
+                noise = 0.1 * Variable(fusion.data.new(fusion.size()).normal_(0, 1))
+                fusion_with_noise = fusion + noise
+                fusion_with_noise = self.linear(fusion_with_noise)
+                output[t] = fusion_with_noise
+        else:
+            raise NotImplementedError
+
         output = self.drop(output)
         decoded = self.decoder(output.view(output.size(0) * output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), mu, logvar
@@ -115,7 +152,8 @@ class VAEModel(nn.Module):
         """
         seq_len = input.size()[0]
         batch_sz = input.size()[1]
-        emb, lat, mu, logvar = self.enc(input)
+
+        emb, lat, mu, logvar = self.blstm_enc(input)
         # emb: seq_len, batchsz, hid_dim
         # hidden: ([2(nlayers),10(batchsz),200],[])
 
@@ -135,8 +173,8 @@ class VAEModel(nn.Module):
         lat_to_cat = lat[0][0].unsqueeze(0)
         emb_t = self.drop(self.encoder(unk)).unsqueeze(0)
         emb_0 = self.drop(self.encoder(sos)).unsqueeze(0)
-        emb_t_comb = torch.cat([emb_t, lat_to_cat],dim=2)
-        emt_0_comb = torch.cat([emb_0,lat_to_cat],dim=2)
+        emb_t_comb = torch.cat([emb_t, lat_to_cat], dim=2)
+        emt_0_comb = torch.cat([emb_0, lat_to_cat], dim=2)
 
         hidden = None
 
@@ -150,7 +188,7 @@ class VAEModel(nn.Module):
             # print(emb.size())
 
             if hidden is None:
-                output, hidden = self.rnn(emb,None)
+                output, hidden = self.rnn(emb, None)
             else:
                 output, hidden = self.rnn(emb, hidden)
 
@@ -163,8 +201,14 @@ class VAEModel(nn.Module):
         return outputs_prob, outputs, mu, logvar
 
     def convert_z_to_hidden(self, z, batch_sz):
-        h = self.z_to_h(z).view(batch_sz, 2, -1).permute(1, 0, 2).contiguous()
-        c = self.z_to_c(z).view(batch_sz, 2, -1).permute(1, 0, 2).contiguous()
+        """
+
+        :param z:   batch, lat_dim
+        :param batch_sz:
+        :return:
+        """
+        h = self.z_to_h(z).view(batch_sz, self.nlayers, -1).permute(1, 0, 2).contiguous()
+        c = self.z_to_c(z).view(batch_sz, self.nlayers, -1).permute(1, 0, 2).contiguous()
         return (h, c)
 
     def init_hidden(self, bsz):
@@ -175,10 +219,8 @@ class VAEModel(nn.Module):
         else:
             return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())
 
-
     def init_weights(self):
         initrange = 0.1
         self.emb.weight.data.uniform_(-initrange, initrange)
         self.enc_rnn.bias.data.fill_(0)
         self.enc_rnn.weight.data.uniform_(-initrange, initrange)
-

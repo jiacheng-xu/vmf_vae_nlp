@@ -101,7 +101,6 @@ def evaluate(args, model, corpus, data_source, crit=nn.CrossEntropyLoss(ignore_i
     total_loss = 0
     ntokens = len(corpus.dictionary)
     cnt = 0
-
     for batch, i in enumerate(range(0, len(data_source))):
         data, targets = get_batch(args, data_source, i, evaluation=True)
         seq_len, bsz = data.size()
@@ -117,7 +116,6 @@ def evaluate(args, model, corpus, data_source, crit=nn.CrossEntropyLoss(ignore_i
 
 def decode_inputless(args, model, corpus, data_source, crit=nn.CrossEntropyLoss(ignore_index=0)):
     ntokens = len(corpus.dictionary)
-    ntokens = 82781
 
     total_loss = 0
     cnt = 0

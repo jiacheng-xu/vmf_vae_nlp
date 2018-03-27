@@ -3,7 +3,7 @@ import argparse
 import logging
 import math
 import time
-import os
+
 import torch
 import torch.nn as nn
 
@@ -18,14 +18,14 @@ parser.add_argument('--data_path', type=str, default='../data/yelp15', help='loc
 parser.add_argument('--model', type=str, default='vae', help='lstm or vae; VAE or not')
 parser.add_argument('--decoder', type=str, default='lstm', help='lstm or bow; Using LSTM or BoW as decoder')
 
-parser.add_argument('--fly', action='store_true', help='Without previous ground truth = inputless decode', default=False)
+parser.add_argument('--fly', action='store_true', help='Without previous ground truth = inputless decode',
+                    default=False)
 
-
-parser.add_argument('--emsize', type=int, default=300, help='size of word embeddings')
-parser.add_argument('--nhid', type=int, default=300, help='number of hidden units per layer')
+parser.add_argument('--emsize', type=int, default=39, help='size of word embeddings')
+parser.add_argument('--nhid', type=int, default=49, help='number of hidden units per layer')
+parser.add_argument('--lat_dim', type=int, default=59, help='dim of latent vec z')
 parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
-
 
 parser.add_argument('--lr', type=float, default=10,
                     help='initial learning rate')
@@ -47,10 +47,8 @@ parser.add_argument('--cuda', action='store_true', help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
 
-
 parser.add_argument('--save', type=str, default='model.pt',
                     help='path to save the final model')
-
 
 parser.add_argument('--kl_weight', type=float, default=1,
                     help='scalling item for KL')
@@ -63,28 +61,28 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
     else:
         torch.cuda.manual_seed(args.seed)
-fname = 'Model_{}_Fly_{}_Emb{}_Hid{}_nlayer{}_lr{}_drop{}_tied{}_klw{}.log'.format(args.model, args.fly, args.emsize,
-                                                                                   args.nhid, args.nlayers, args.lr,
-                                                                                   args.dropout, args.tied,
-                                                                                   args.kl_weight)
-print(fname)
 
-logging.basicConfig(filename=fname, level=logging.INFO)
+args.save_name = 'Data{}_Model{}_Dec{}_Fly{}_Emb{}_Hid{}_lat{}_nlay{}_lr{}_drop{}'.format(
+    args.data_name, args.model, args.decoder,
+    args.fly, args.emsize,
+    args.nhid, args.lat_dim, args.nlayers, args.lr,
+    args.dropout)
+
+log_name = args.save_name + '.log'
+logging.basicConfig(filename=log_name, level=logging.INFO)
 ###############################################################################
 # Load data
 ###############################################################################
 
 # corpus = data.Corpus(args.data)
-if 'yelp' in args.data:
-    corpus = data.Corpus(args.data,start_idx=1, end_idx=130)
+if 'yelp' in args.data_name:
+    corpus = data.Corpus(args.data_path, start_idx=1, end_idx=130)
 else:
-    corpus = data.Corpus(args.data)
+    corpus = data.Corpus(args.data_path)
 
-
-eval_batch_size = 10
 train_data = util.make_batch(args, corpus.train, args.batch_size)
-val_data = util.make_batch(args, corpus.valid, eval_batch_size)
-test_data = util.make_batch(args, corpus.test, eval_batch_size)
+val_data = util.make_batch(args, corpus.valid, args.eval_batch_size)
+test_data = util.make_batch(args, corpus.test, args.eval_batch_size)
 
 ###############################################################################
 # Build the model
@@ -99,12 +97,11 @@ if args.model.lower() == 'lstm':
 elif args.model.lower() == 'vae':
     from vae_proto import vae_model
 
-    model = vae_model.VAEModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied,
-                               lat_dim=111)
+    model = vae_model.VAEModel(args,args.decoder, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied,
+                               lat_dim=args.lat_dim)
 else:
     raise NotImplementedError
-
-args.save = args.model + args.save
+print("Model {}".format(model))
 
 # if os.path.isfile(args.save):
 #     with open(args.save, 'rb') as f:
@@ -123,8 +120,6 @@ criterion = nn.CrossEntropyLoss(ignore_index=0)
 ###############################################################################
 # Training code
 ###############################################################################
-
-
 
 
 def train():
@@ -172,7 +167,7 @@ def train():
                 output, mu, logvar = model(data)
 
             loss = criterion(output.view(-1, ntokens), targets)
-            kld = vae_model.kld(mu, logvar, 1)
+            kld = util.kld(mu, logvar, 1)
 
             if batch % (args.log_interval / 2) == 0:
                 print("RecLoss: %f\tKL: %f" % (loss.data, kld.data))
@@ -232,7 +227,6 @@ def train():
                 acc_total_loss = 0
             else:
                 raise NotImplementedError
-
             start_time = time.time()
 
 
@@ -253,13 +247,12 @@ try:
               'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
                                          val_loss, math.exp(val_loss)))
         print('-' * 89)
-
-        with open('valid_PPL_' + fname, 'w') as f:
+        with open('Valid_PPL_' + log_name, 'w') as f:
             f.write("{}\t{}".format(epoch, math.exp(val_loss)))
 
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
-            with open(args.save, 'wb') as f:
+            with open(args.save_name, 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
         else:
@@ -270,12 +263,12 @@ except KeyboardInterrupt:
     print('Exiting from training early')
 
 # Load the best saved model.
-with open(args.save, 'rb') as f:
+with open(args.save_name, 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.
 test_loss = util.evaluate(args, model, corpus, test_data, criterion)
 print('=' * 89)
-print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
+print('| End of training | Test Loss {:5.2f} | Test PPL {:8.2f}'.format(
     test_loss, math.exp(test_loss)))
 print('=' * 89)
