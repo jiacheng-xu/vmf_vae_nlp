@@ -1,9 +1,12 @@
 import logging
+import math
+import random
+
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-import random
-import math
+
 
 def lookup_dict(dict, inp):
     ndim = len(inp.size())
@@ -21,13 +24,14 @@ def lookup_dict(dict, inp):
         for b in range(batchsz):
             tmp = []
             for t in range(seq_len):
-                idx = inp[t,b]
+                idx = inp[t, b]
                 word = dict.idx2word[idx]
                 tmp.append(word)
             rt_batch.append(tmp)
         return rt_batch
     else:
         raise NotImplementedError
+
 
 def repackage_hidden(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
@@ -46,7 +50,6 @@ def get_batch(args, source, i, evaluation=False):
     sos = torch.LongTensor(1, bsz).fill_(1)
     if args.cuda:
         sos = sos.cuda()
-
     input_data = Variable(torch.cat((sos, data_patch[:-1])), volatile=evaluation)
     target = Variable(data_patch.view(-1))
     if args.cuda:
@@ -68,7 +71,7 @@ def make_single_batch(args, buff):
     return batch
 
 
-def make_batch(args, data_bag, bsz,shuffle=True):
+def make_batch(args, data_bag, bsz, shuffle=True):
     all_batched_data = []
     total_num = len(data_bag)
     n_batch = total_num // bsz
@@ -105,16 +108,20 @@ def evaluate(args, model, corpus, data_source, crit=nn.CrossEntropyLoss(ignore_i
         if args.fly:
             output = model.forward_decode(args, data, ntokens)[0]
         else:
-            output =  model(data)[0]
+            output = model(data)[0]
         output_flat = output.view(-1, ntokens)
         total_loss += seq_len * bsz * crit(output_flat, targets).data
         cnt += seq_len * bsz
     return total_loss[0] / cnt
 
-def decode_inputless(args, model, corpus, data_source,crit=nn.CrossEntropyLoss(ignore_index=0)):
+
+def decode_inputless(args, model, corpus, data_source, crit=nn.CrossEntropyLoss(ignore_index=0)):
     ntokens = len(corpus.dictionary)
+    ntokens = 82781
+
     total_loss = 0
     cnt = 0
+    softmax = nn.Softmax()
     try:
         for batch, i in enumerate(range(0, len(data_source))):
             data, targets = get_batch(args, data_source, i, evaluation=True)
@@ -126,13 +133,36 @@ def decode_inputless(args, model, corpus, data_source,crit=nn.CrossEntropyLoss(i
             total_loss += seq_len * bsz * crit(output_flat, targets).data
             cnt += seq_len * bsz
 
-            # output
-            outputs_word = lookup_dict(corpus.dictionary,outputs)
+            # Always Top-1 output  -- max
+            argmax_word = lookup_dict(corpus.dictionary, outputs)
+
+            # Sampling best output
+            idx_range = list(range(ntokens))
+            _list_idxs = []
+            prob = torch.nn.functional.softmax(output_flat, dim=1).data
+            # print(torch.sum(prob,dim=1))
+            for t in range(output_flat.size()[0]):
+                _p = prob[t]
+                val, i = torch.topk(_p, 20)
+                val = val.cpu().numpy()
+                val = val / np.sum(val)
+                # val = val * 1000
+                # val = val.int()
+                # val = val.float() / 1000
+                # val = val / torch.sum(val)
+                # print(np.sum(val))
+                idx = np.random.choice(i, 1, p=val)[0]
+                _list_idxs.append(idx)
+                _np_list_idxs = np.asarray(_list_idxs)
+            tensor_idxs = torch.LongTensor(_np_list_idxs)
+            tensor_idxs = tensor_idxs.view(seq_len, bsz)
+            sample_word = lookup_dict(corpus.dictionary, tensor_idxs)
+
             gt_inp_word = lookup_dict(corpus.dictionary, data.data)
-            for gt, pd in zip(gt_inp_word, outputs_word):
-                logging.info('Truth: {}\nPred: {}'.format(' '.join(gt), ' '.join(pd)))
-                print('Truth: {}\nPred: {}'.format(' '.join(gt), ' '.join(pd)))
-                print('-'*89)
+            for gt, sp, ma in zip(gt_inp_word, sample_word, argmax_word):
+                logging.info('Truth: {}\nPredMax: {}\nPredSap: {}'.format(' '.join(gt), ' '.join(ma), ' '.join(sp)))
+                print('Truth: {}\nPredMax: {}\nPredSap: {}'.format(' '.join(gt), ' '.join(ma), ' '.join(sp)))
+                print('-' * 89)
     except KeyboardInterrupt:
         print('-' * 89)
         print('Exiting from training early')
@@ -140,3 +170,27 @@ def decode_inputless(args, model, corpus, data_source,crit=nn.CrossEntropyLoss(i
     logging.info('Loss {}'.format(avg_total_loss))
     logging.info('PPL  {}'.format(math.exp(avg_total_loss)))
     return avg_total_loss
+
+
+def schedule(epo, eval=False):
+    if eval:
+        return 1
+    if epo < 4:
+        return 0
+    elif epo <= 24:
+        return (epo - 4) / 20
+    else:
+        return 1
+
+
+def kld(mu, logvar, kl_weight=1):
+    # see Appendix B from VAE paper:
+    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+    # https://arxiv.org/abs/1312.6114
+    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+    bsz = mu.size()[0]
+    # print(bsz)
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / bsz
+    KLD *= kl_weight
+    return KLD
+

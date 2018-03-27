@@ -3,7 +3,7 @@ import argparse
 import logging
 import math
 import time
-
+import os
 import torch
 import torch.nn as nn
 
@@ -12,35 +12,46 @@ from vae_proto import util
 
 parser = argparse.ArgumentParser(description='PyTorch LSTM Language Model')
 
-parser.add_argument('--data', type=str, default='../data/ptb', help='location of the data corpus')
-parser.add_argument('--model', type=str, default='vae', help='lstm or vae')
-parser.add_argument('--fly', action='store_true', help='w/o previous ground truth = inputless decode', default=False)
+parser.add_argument('--data_name', type=str, default='yelp15', help='name of the data corpus')
+parser.add_argument('--data_path', type=str, default='../data/yelp15', help='location of the data corpus')
 
-parser.add_argument('--emsize', type=int, default=200, help='size of word embeddings')
+parser.add_argument('--model', type=str, default='vae', help='lstm or vae; VAE or not')
+parser.add_argument('--decoder', type=str, default='lstm', help='lstm or bow; Using LSTM or BoW as decoder')
 
-parser.add_argument('--nhid', type=int, default=200, help='number of hidden units per layer')
-parser.add_argument('--nlayers', type=int, default=2,
+parser.add_argument('--fly', action='store_true', help='Without previous ground truth = inputless decode', default=False)
+
+
+parser.add_argument('--emsize', type=int, default=300, help='size of word embeddings')
+parser.add_argument('--nhid', type=int, default=300, help='number of hidden units per layer')
+parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
+
+
 parser.add_argument('--lr', type=float, default=10,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.5,
                     help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=200,
+parser.add_argument('--epochs', type=int, default=100,
                     help='upper epoch limit')
+
 parser.add_argument('--batch_size', type=int, default=20, metavar='N', help='batch size')
 parser.add_argument('--eval_batch_size', type=int, default=10, help='evaluation batch size')
 
-# parser.add_argument('--bptt', type=int, default=35,help='sequence length')
-parser.add_argument('--dropout', type=float, default=0.2,
+parser.add_argument('--dropout', type=float, default=0.5,
                     help='dropout applied to layers (0 = no dropout)')
+
 parser.add_argument('--tied', action='store_true',
                     help='tie the word embedding and softmax weights')
 parser.add_argument('--seed', type=int, default=1111, help='random seed')
 parser.add_argument('--cuda', action='store_true', help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
+
+
 parser.add_argument('--save', type=str, default='model.pt',
                     help='path to save the final model')
+
+
 parser.add_argument('--kl_weight', type=float, default=1,
                     help='scalling item for KL')
 args = parser.parse_args()
@@ -64,22 +75,10 @@ logging.basicConfig(filename=fname, level=logging.INFO)
 ###############################################################################
 
 # corpus = data.Corpus(args.data)
-corpus = data.Corpus(args.data)
-
-# Starting from sequential data, batchify arranges the dataset into columns.
-# For instance, with the alphabet as the sequence and batch size 4, we'd get
-# ┌ a g m s ┐
-# │ b h n t │
-# │ c i o u │
-# │ d j p v │
-# │ e k q w │
-# └ f l r x ┘.
-# These columns are treated as independent by the model, which means that the
-# dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
-# batch processing.
-
-
-
+if 'yelp' in args.data:
+    corpus = data.Corpus(args.data,start_idx=1, end_idx=130)
+else:
+    corpus = data.Corpus(args.data)
 
 
 eval_batch_size = 10
@@ -94,14 +93,14 @@ ntokens = len(corpus.dictionary)
 print('Dict size: %d' % ntokens)
 
 if args.model.lower() == 'lstm':
-    from vae_proto import pure_rnn
+    from vae_proto import rnn_model
 
-    model = pure_rnn.RNNModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
+    model = rnn_model.RNNModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
 elif args.model.lower() == 'vae':
-    from vae_proto import vae_rnn
+    from vae_proto import vae_model
 
-    model = vae_rnn.VAEModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied,
-                             lat_dim=args.nhid)
+    model = vae_model.VAEModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied,
+                               lat_dim=111)
 else:
     raise NotImplementedError
 
@@ -113,6 +112,8 @@ args.save = args.model + args.save
 
 if args.cuda:
     model.cuda()
+else:
+    model.cpu()
 
 logging.info(model)
 
@@ -129,6 +130,7 @@ criterion = nn.CrossEntropyLoss(ignore_index=0)
 def train():
     # Turn on training mode which enables dropout.
     model.train()
+    optim = torch.optim.SGD(model.parameters(), lr=args.lr)
 
     acc_loss = 0
     acc_kl_loss = 0
@@ -141,6 +143,8 @@ def train():
     cnt = 0
     glob_iteration = 0
     for batch, i in enumerate(range(0, len(train_data))):
+        optim.zero_grad()
+
         glob_iteration += 1
         data, targets = util.get_batch(args, train_data, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
@@ -168,7 +172,7 @@ def train():
                 output, mu, logvar = model(data)
 
             loss = criterion(output.view(-1, ntokens), targets)
-            kld = vae_rnn.kld(mu, logvar, 1)
+            kld = vae_model.kld(mu, logvar, 1)
 
             if batch % (args.log_interval / 2) == 0:
                 print("RecLoss: %f\tKL: %f" % (loss.data, kld.data))
@@ -178,8 +182,10 @@ def train():
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
-        for p in model.parameters():
-            p.data.add_(-lr, p.grad.data)
+
+        # for p in model.parameters():
+        #     p.data.add_(-lr, p.grad.data)
+        optim.step()
 
         if args.model == 'lstm':
             acc_loss += loss.data * seq_len * bsz
@@ -237,6 +243,8 @@ best_val_loss = None
 # At any point you can hit Ctrl + C to break out of training early.
 try:
     for epoch in range(1, args.epochs + 1):
+        args.kl_weight = util.schedule(epoch)
+
         epoch_start_time = time.time()
         train()
         val_loss = util.evaluate(args, model, corpus, val_data, criterion)
