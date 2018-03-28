@@ -174,7 +174,7 @@ def schedule(epo, eval=False):
     if eval:
         return 1
     if epo < 4:
-        return 0
+        return 0.001
     elif epo <= 24:
         return (epo - 4) / 20
     else:

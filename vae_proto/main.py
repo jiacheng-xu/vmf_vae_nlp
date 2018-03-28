@@ -3,12 +3,14 @@ import argparse
 import logging
 import math
 import time
-
+import os
 import torch
 import torch.nn as nn
+from tensorboardX import SummaryWriter
 
 from vae_proto import data
 from vae_proto import util
+
 
 parser = argparse.ArgumentParser(description='PyTorch LSTM Language Model')
 
@@ -67,6 +69,7 @@ args.save_name = 'Data{}_Model{}_Dec{}_Fly{}_Emb{}_Hid{}_lat{}_nlay{}_lr{}_drop{
     args.fly, args.emsize,
     args.nhid, args.lat_dim, args.nlayers, args.lr,
     args.dropout)
+writer = SummaryWriter(log_dir='exps/'+args.save_name)
 
 log_name = args.save_name + '.log'
 logging.basicConfig(filename=log_name, level=logging.INFO)
@@ -102,10 +105,12 @@ elif args.model.lower() == 'vae':
 else:
     raise NotImplementedError
 print("Model {}".format(model))
+logging.info("Model {}".format(model))
 
-# if os.path.isfile(args.save):
-#     with open(args.save, 'rb') as f:
-#         model = torch.load(f)
+if os.path.isfile(args.save_name):
+    with open(args.save_name, 'rb') as f:
+        model = torch.load(f)
+    logging.info("Successfully load previous model! {}".format(args.save_name))
 
 if args.cuda:
     model.cuda()
@@ -121,8 +126,7 @@ criterion = nn.CrossEntropyLoss(ignore_index=0)
 # Training code
 ###############################################################################
 
-
-def train():
+def train(glob_iteration):
     # Turn on training mode which enables dropout.
     model.train()
     optim = torch.optim.SGD(model.parameters(), lr=args.lr)
@@ -136,7 +140,7 @@ def train():
     # hidden = model.init_hidden(args.batch_size)
 
     cnt = 0
-    glob_iteration = 0
+
     for batch, i in enumerate(range(0, len(train_data))):
         optim.zero_grad()
 
@@ -197,6 +201,11 @@ def train():
                     "\t{}\t{}\t{}\t{}".format(epoch, glob_iteration, cur_loss,
                                               math.exp(cur_loss)))
 
+                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight,
+                                             'cur_loss': cur_loss,
+                                              'ppl': math.exp(cur_loss)
+                                             }, global_step=glob_iteration)
+
             elif args.model == 'vae':
                 cur_loss = acc_loss[0] / cnt
                 cur_kl = acc_kl_loss[0] / cnt
@@ -205,6 +214,10 @@ def train():
                 logging.info(
                     "\t{}\t{}\t{}\t{}\t{}\t{}".format(epoch, glob_iteration, cur_loss, cur_kl, cur_sum,
                                                       math.exp(cur_loss)))
+                writer.add_scalars('train', {'lr':args.lr,'kl_weight':args.kl_weight,
+                                             'cur_loss': cur_loss,'cur_kl':cur_kl,
+                                             'cur_sum':cur_sum,'ppl':math.exp(cur_loss)
+                                             }, global_step=glob_iteration)
 
             cnt = 0
             elapsed = time.time() - start_time
@@ -229,6 +242,7 @@ def train():
                 raise NotImplementedError
             start_time = time.time()
 
+    return glob_iteration
 
 # Loop over epochs.
 lr = args.lr
@@ -236,16 +250,21 @@ best_val_loss = None
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
+    glob_iter=0
     for epoch in range(1, args.epochs + 1):
         args.kl_weight = util.schedule(epoch)
 
         epoch_start_time = time.time()
-        train()
+        glob_iter = train(glob_iter)
         val_loss = util.evaluate(args, model, corpus, val_data, criterion)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
               'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
                                          val_loss, math.exp(val_loss)))
+        writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
+                                     'val_loss': val_loss,
+                                     'ppl': math.exp(val_loss)
+                                     }, global_step=glob_iter)
         print('-' * 89)
         with open('Valid_PPL_' + log_name, 'w') as f:
             f.write("{}\t{}".format(epoch, math.exp(val_loss)))
@@ -272,3 +291,5 @@ print('=' * 89)
 print('| End of training | Test Loss {:5.2f} | Test PPL {:8.2f}'.format(
     test_loss, math.exp(test_loss)))
 print('=' * 89)
+
+writer.close()

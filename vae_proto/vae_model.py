@@ -9,7 +9,7 @@ class VAEModel(nn.Module):
 
     def __init__(self, args, dec_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, lat_dim=500):
         super(VAEModel, self).__init__()
-
+        self.args = args
         self.lat_dim = lat_dim
         self.nhid = nhid
         self.nlayers = nlayers
@@ -126,9 +126,12 @@ class VAEModel(nn.Module):
             fusion = torch.cat((emb, lat_to_cat), dim=1) # torch.Size([20, 39+49])
             # output seq_len, batch, hidden_size * num_directions
             output = Variable(torch.FloatTensor(seq_len, batch_sz, self.nhid ))
+            if self.args.cuda:
+                output= output.cuda()
             for t in range(seq_len):
-
                 noise = 0.1 * Variable(fusion.data.new(fusion.size()).normal_(0, 1))
+                if self.args.cuda:
+                    noise = noise.cuda()
                 fusion_with_noise = fusion + noise
                 fusion_with_noise = self.linear(fusion_with_noise)
                 output[t] = fusion_with_noise
