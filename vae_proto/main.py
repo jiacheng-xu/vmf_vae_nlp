@@ -14,8 +14,8 @@ from vae_proto import util
 
 parser = argparse.ArgumentParser(description='PyTorch LSTM Language Model')
 
-parser.add_argument('--data_name', type=str, default='yelp15', help='name of the data corpus')
-parser.add_argument('--data_path', type=str, default='../data/yelp15', help='location of the data corpus')
+parser.add_argument('--data_name', type=str, default='wiki', help='name of the data corpus')
+parser.add_argument('--data_path', type=str, default='../data/wiki', help='location of the data corpus')
 
 parser.add_argument('--model', type=str, default='vae', help='lstm or vae; VAE or not')
 parser.add_argument('--decoder', type=str, default='lstm', help='lstm or bow; Using LSTM or BoW as decoder')
@@ -23,13 +23,13 @@ parser.add_argument('--decoder', type=str, default='lstm', help='lstm or bow; Us
 parser.add_argument('--fly', action='store_true', help='Without previous ground truth = inputless decode',
                     default=False)
 
-parser.add_argument('--emsize', type=int, default=39, help='size of word embeddings')
-parser.add_argument('--nhid', type=int, default=49, help='number of hidden units per layer')
-parser.add_argument('--lat_dim', type=int, default=59, help='dim of latent vec z')
+parser.add_argument('--emsize', type=int, default=650, help='size of word embeddings')
+parser.add_argument('--nhid', type=int, default=650, help='number of hidden units per layer')
+parser.add_argument('--lat_dim', type=int, default=650, help='dim of latent vec z')
 parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
 
-parser.add_argument('--lr', type=float, default=10,
+parser.add_argument('--lr', type=float, default=20,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.5,
                     help='gradient clipping')
@@ -129,7 +129,23 @@ criterion = nn.CrossEntropyLoss(ignore_index=0)
 def train(glob_iteration):
     # Turn on training mode which enables dropout.
     model.train()
-    optim = torch.optim.SGD(model.parameters(), lr=args.lr)
+
+
+    if args.model =='vae':
+        # params_kl = list(model.fc_mu.parameters()) + list(model.fc_logvar.parameters()) \
+        #             + list(model.z_to_c.parameters()) + list(model.z_to_h.parameters())
+
+        params_dict = dict(model.named_parameters())
+        params = []
+        for key, value in params_dict.items():
+            if 'fc_' in key or 'z_to_' in key:
+                params += [{'params': [value], 'lr': args.lr/50}]
+            else:
+                params += [{'params': [value], 'lr': args.lr}]
+
+        optim = torch.optim.SGD(params, momentum=0.9)
+    else:
+        optim = torch.optim.SGD(model.parameters(), lr=args.lr)
 
     acc_loss = 0
     acc_kl_loss = 0

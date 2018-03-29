@@ -1,5 +1,6 @@
 import os
 import torch
+import random
 
 class Dictionary(object):
     def __init__(self):
@@ -39,7 +40,9 @@ class Corpus(object):
         with open(path, 'r') as f:
             ids = torch.LongTensor(tokens)
             token = 0
-            for line in f:
+            lines = f.read().splitlines()
+            random.shuffle(lines)
+            for line in lines:
                 words = line.split() + ['<eos>']
                 for word in words:
                     ids[token] = self.dictionary.word2idx[word]

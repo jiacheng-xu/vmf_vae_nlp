@@ -45,7 +45,10 @@ class VAEModel(nn.Module):
             self.linear = nn.Linear(nhid+ninp, nhid)
         else:
             raise NotImplementedError
-
+        if tie_weights:
+            if nhid != ninp:
+                raise ValueError('When using the tied flag, nhid must be equal to emsize')
+            self.decoder.weight = self.emb.weight
         """
         # Optionally tie weights as in:
         # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
