@@ -6,20 +6,14 @@ from torch.autograd import Variable
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(self, ntoken, ninp, nhid, agenda_dim, nlayers=1, dropout=0.5, tie_weights=False):
         super(RNNModel, self).__init__()
+
         self.drop = nn.Dropout(dropout)
-        self.encoder = nn.Embedding(ntoken, ninp)
-        if rnn_type in ['LSTM', 'GRU']:
-            self.rnn = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
-        else:
-            try:
-                nonlinearity = {'RNN_TANH': 'tanh', 'RNN_RELU': 'relu'}[rnn_type]
-            except KeyError:
-                raise ValueError("""An invalid option for `--model` was supplied,
-                                 options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
-            self.rnn = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.decoder = nn.Linear(nhid, ntoken)
+        self.embed = nn.Embedding(ntoken, ninp)
+
+        self.decoder_rnn = nn.LSTM(ninp+agenda_dim, nhid, nlayers, dropout=dropout)
+        self.decoder_out = nn.Linear(nhid, ntoken)
 
         # Optionally tie weights as in:
         # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
@@ -30,28 +24,39 @@ class RNNModel(nn.Module):
         if tie_weights:
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
-            self.decoder.weight = self.encoder.weight
+            self.decoder_out.weight = self.embed.weight
 
         self.init_weights()
 
-        self.rnn_type = rnn_type
         self.nhid = nhid
         self.nlayers = nlayers
 
     def init_weights(self):
+
         initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
-        self.decoder.bias.data.fill_(0)
-        self.decoder.weight.data.uniform_(-initrange, initrange)
+        self.embed.weight.data.uniform_(-initrange, initrange)
+        self.decoder_out.bias.data.fill_(0)
+        self.decoder_out.weight.data.uniform_(-initrange, initrange)
+
+        # # kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal'
+        # torch.nn.init.xavier_uniform(self.decoder_rnn.weight_ih_l0.data, gain=nn.init.calculate_gain('sigmoid'))
+        # torch.nn.init.orthogonal(self.decoder_rnn.weight_hh_l0.data, gain=nn.init.calculate_gain('sigmoid'))
+        #
+        # # embedding uniform
+        # torch.nn.init.xavier_uniform(self.embed.weight.data, gain=nn.init.calculate_gain('linear'))
+        #
+        # # Linear kernel_initializer='glorot_uniform'
+        # torch.nn.init.xavier_uniform(self.decoder_out.weight.data, gain=nn.init.calculate_gain('linear'))
 
     def forward(self, input, hidden=None):
         batch_sz = input.size()[1]
         if hidden is None:
             hidden = self.init_hidden(batch_sz)
-        emb = self.drop(self.encoder(input))
-        output, hidden = self.rnn(emb, hidden)
+        emb = self.drop(self.embed(input))
+        output, hidden = self.decoder_rnn(emb, hidden)
         output = self.drop(output)
-        decoded = self.decoder(output.view(output.size(0) * output.size(1), output.size(2)))
+        # output (seq_len, batch, hidden_size * num_directions)
+        decoded = self.decoder_out(output.view(output.size(0) * output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
 
     def forward_decode(self, args, input, ntokens):
@@ -92,9 +97,11 @@ class RNNModel(nn.Module):
         return outputs_prob, outputs
 
     def init_hidden(self, bsz):
-        weight = next(self.parameters()).data
-        if self.rnn_type == 'LSTM':
-            return (Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()),
-                    Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()))
-        else:
-            return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())
+        return (Variable(torch.zeros(self.nlayers, bsz, self.nhid)).cuda(),
+                Variable(torch.zeros(self.nlayers, bsz, self.nhid)).cuda())
+        # weight = next(self.parameters()).data
+        # if self.rnn_type == 'LSTM':
+        #     return (Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()),
+        #             Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()))
+        # else:
+        #     return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())

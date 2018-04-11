@@ -7,18 +7,22 @@ import os
 import torch
 import torch.nn as nn
 from tensorboardX import SummaryWriter
-
+from torch.autograd import Variable as Var
 from vae_proto import data
 from vae_proto import util
 
 
-parser = argparse.ArgumentParser(description='PyTorch LSTM Language Model')
+parser = argparse.ArgumentParser(description='PyTorch VAE LSTM Language Model')
 
-parser.add_argument('--data_name', type=str, default='wiki', help='name of the data corpus')
-parser.add_argument('--data_path', type=str, default='../data/wiki', help='location of the data corpus')
+parser.add_argument('--data_name', type=str, default='20news', help='name of the data corpus')
+parser.add_argument('--data_path', type=str, default='../data/20news', help='location of the data corpus')
 
-parser.add_argument('--model', type=str, default='vae', help='lstm or vae; VAE or not')
-parser.add_argument('--decoder', type=str, default='lstm', help='lstm or bow; Using LSTM or BoW as decoder')
+parser.add_argument('--encoder', type=str, default='bow', help='bow or lstm')
+parser.add_argument('--decoder', type=str, default='bow', help='lstm or bow; Using LSTM or BoW as decoder')
+
+parser.add_argument('--dist',type=str,default=None, help='default: None (no vae) ; nor or vmf')
+
+parser.add_argument('--kappa',type=float, default=5)
 
 parser.add_argument('--fly', action='store_true', help='Without previous ground truth = inputless decode',
                     default=False)
@@ -29,9 +33,9 @@ parser.add_argument('--lat_dim', type=int, default=650, help='dim of latent vec 
 parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
 
-parser.add_argument('--lr', type=float, default=20,
+parser.add_argument('--lr', type=float, default=0.01,
                     help='initial learning rate')
-parser.add_argument('--clip', type=float, default=0.5,
+parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=100,
                     help='upper epoch limit')
@@ -53,7 +57,10 @@ parser.add_argument('--save', type=str, default='model.pt',
                     help='path to save the final model')
 
 parser.add_argument('--kl_weight', type=float, default=1,
-                    help='scalling item for KL')
+                    help='scaling item for KL')
+
+parser.add_argument('--load',type=str,default=None,help='restoring previous model')
+
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -64,8 +71,8 @@ if torch.cuda.is_available():
     else:
         torch.cuda.manual_seed(args.seed)
 
-args.save_name = 'Data{}_Model{}_Dec{}_Fly{}_Emb{}_Hid{}_lat{}_nlay{}_lr{}_drop{}'.format(
-    args.data_name, args.model, args.decoder,
+args.save_name = 'Data{}_Model{}_Dec{}_Dist{}_Fly{}_Emb{}_Hid{}_lat{}_nlay{}_lr{}_drop{}'.format(
+    args.data_name, args.encoder, args.decoder,str(args.dist),
     args.fly, args.emsize,
     args.nhid, args.lat_dim, args.nlayers, args.lr,
     args.dropout)
@@ -78,7 +85,9 @@ logging.basicConfig(filename=log_name, level=logging.INFO)
 ###############################################################################
 
 # corpus = data.Corpus(args.data)
-if 'yelp' in args.data_name:
+if '20news' in args.data_name:
+    corpus = data.NewsCorpus(args.data_path)
+elif 'yelp' in args.data_name:
     corpus = data.Corpus(args.data_path, start_idx=1, end_idx=130)
 else:
     corpus = data.Corpus(args.data_path)
@@ -96,21 +105,21 @@ print('Dict size: %d' % ntokens)
 if args.model.lower() == 'lstm':
     from vae_proto import rnn_model
 
-    model = rnn_model.RNNModel("LSTM", ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
+    model = rnn_model.RNNModel( ntokens, args.emsize, args.nhid,0, args.nlayers, args.dropout, args.tied)
 elif args.model.lower() == 'vae':
     from vae_proto import vae_model
 
-    model = vae_model.VAEModel(args,args.decoder, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied,
-                               lat_dim=args.lat_dim)
+    model = vae_model.VAEModel(args,args.decoder, ntokens, args.emsize, args.nhid, args.lat_dim,args.nlayers, args.dropout, args.tied)
 else:
     raise NotImplementedError
 print("Model {}".format(model))
 logging.info("Model {}".format(model))
 
-if os.path.isfile(args.save_name):
-    with open(args.save_name, 'rb') as f:
-        model = torch.load(f)
-    logging.info("Successfully load previous model! {}".format(args.save_name))
+if args.load != None:
+    if os.path.isfile(args.load):
+        with open(args.load, 'rb') as f:
+            model = torch.load(f)
+        logging.info("Successfully load previous model! {}".format(args.load))
 
 if args.cuda:
     model.cuda()
@@ -134,16 +143,16 @@ def train(glob_iteration):
     if args.model =='vae':
         # params_kl = list(model.fc_mu.parameters()) + list(model.fc_logvar.parameters()) \
         #             + list(model.z_to_c.parameters()) + list(model.z_to_h.parameters())
-
-        params_dict = dict(model.named_parameters())
-        params = []
-        for key, value in params_dict.items():
-            if 'fc_' in key or 'z_to_' in key:
-                params += [{'params': [value], 'lr': args.lr/50}]
-            else:
-                params += [{'params': [value], 'lr': args.lr}]
-
-        optim = torch.optim.SGD(params, momentum=0.9)
+        optim = torch.optim.Adam(model.parameters(), lr=args.lr)
+        # params_dict = dict(model.named_parameters())
+        # params = []
+        # for key, value in params_dict.items():
+        #     if 'fc_' in key or 'z_to_' in key:
+        #         params += [{'params': [value], 'lr': args.lr/50}]
+        #     else:
+        #         params += [{'params': [value], 'lr': args.lr}]
+        #
+        # optim = torch.optim.Adam(params)
     else:
         optim = torch.optim.SGD(model.parameters(), lr=args.lr)
 
@@ -187,7 +196,11 @@ def train(glob_iteration):
                 output, mu, logvar = model(data)
 
             loss = criterion(output.view(-1, ntokens), targets)
-            kld = util.kld(mu, logvar, 1)
+
+            if args.dist =='nor':
+                kld = util.kld(mu, logvar, 1)
+            elif args.dist == 'vmf':
+                kld = Var(torch.zeros(1)).cuda()
 
             if batch % (args.log_interval / 2) == 0:
                 print("RecLoss: %f\tKL: %f" % (loss.data, kld.data))

@@ -72,11 +72,11 @@ def preprocess_stage_2(path,fname_train,fname_valid,fname_test):
             wfd.write('\n'.join(bag))
 
     _toke_file(fname_train)
-    _toke_file(fname_valid)
+    # _toke_file(fname_valid)
     _toke_file(fname_test)
     # substitute \ '' '' with  \"   \n with [blank]
 
-def preprocess_stage_3_build_dict(path, dict_sz, train, valid,test):
+def preprocess_stage_3_build_dict(path, dict_sz, train, valid=None,test=None):
     import operator
     d = {}
 
@@ -93,7 +93,8 @@ def preprocess_stage_3_build_dict(path, dict_sz, train, valid,test):
         return dic
 
     d = _count(train, d)
-    d = _count(valid, d)
+    if valid is not None:
+        d = _count(valid, d)
     d = _count(test, d)
     sorted_d = sorted(d.items(), key=operator.itemgetter(1),reverse=True)
     sorted_d = sorted_d[:dict_sz-3]  # leave space for sos pad unk
@@ -118,12 +119,13 @@ def preprocess_stage_3_build_dict(path, dict_sz, train, valid,test):
             fd.write('\n'.join(new_lines))
 
     _update(train, keep_words)
-    _update(valid, keep_words)
+    if valid is not None:
+        _update(valid, keep_words)
     _update(test, keep_words)
 
 
 if __name__ == "__main__":
-    path = '/home/jcxu/vae_txt/data/yelp15'
+    path = '/home/jcxu/vae_txt/data/20news'
     train_file = 'train.csv'
     test_file = 'test.csv'
 
@@ -133,12 +135,12 @@ if __name__ == "__main__":
     fname_valid = 'valid.txt'
     fname_test = 'test.txt'
 
-    # preprocess_stage_2(path,fname_train,fname_valid,fname_test)
+    # preprocess_stage_2(path,fname_train,None,fname_test)
 
     toked_train = 'toked_train.txt'
     toked_valid = 'toked_valid.txt'
     toked_test = 'toked_test.txt'
 
     # Build dictionary
-    dict_size = 90000
-    # preprocess_stage_3_build_dict(path,dict_size , toked_train, toked_valid, toked_test)
+    dict_size = 2000
+    preprocess_stage_3_build_dict(path,dict_size , toked_train, None, toked_test)

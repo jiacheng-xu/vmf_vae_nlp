@@ -2,19 +2,19 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.autograd import Variable as Var
-
+from vae_proto import util, vMF
 
 class VAEModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, args, dec_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, lat_dim=500):
+    def __init__(self, args, dec_type, ntoken, ninp, nhid, lat_dim, nlayers, dropout=0.5, tie_weights=False):
         super(VAEModel, self).__init__()
         self.args = args
         self.lat_dim = lat_dim
         self.nhid = nhid
         self.nlayers = nlayers
         self.ninp= ninp
-
+        self.dist = args.dist
         # VAE shared param
         self.emb = nn.Embedding(ntoken, ninp)
 
@@ -22,22 +22,28 @@ class VAEModel(nn.Module):
         # BLSTM
         self.enc_rnn = nn.LSTM(ninp, nhid, nlayers, bidirectional=True, dropout=dropout)
         self.drop = nn.Dropout(dropout)  # Need explicit dropout
-        self.fc_mu = nn.Linear(2 * nhid * nlayers * 2, lat_dim)  # 2 for bidirect, 2 for h and c
-        self.fc_logvar = nn.Linear(2 * nhid * nlayers * 2, lat_dim)
+        if args.dist =='nor':
+            self.fc_mu = nn.Linear(2 * nhid * nlayers * 2, lat_dim)  # 2 for bidirect, 2 for h and c
+            self.fc_logvar = nn.Linear(2 * nhid * nlayers * 2, lat_dim)
+        elif args.dist =='vmf':
+            self.fc = nn.Linear(2 * nhid * nlayers * 2, lat_dim)
+            self.vmf = vMF.vmf(1, 10, args.kappa)
+        else:
+            raise NotImplementedError
 
         self.z_to_h = nn.Linear(lat_dim, nhid * nlayers)
         self.z_to_c = nn.Linear(lat_dim, nhid * nlayers)
 
         # VAE generation part
         self.dec_type = dec_type
-        self.decoder = nn.Linear(nhid, ntoken)
+        self.decoder_out = nn.Linear(nhid, ntoken)
         # LSTM
         if dec_type == 'lstm':
 
             if args.fly:
-                self.rnn = nn.LSTMCell(ninp + nhid, nhid, nlayers)
+                self.decoder_rnn = nn.LSTMCell(ninp + nhid, nhid, nlayers)
             else:
-                self.rnn = nn.LSTM(ninp + nhid, nhid, nlayers,dropout=dropout)
+                self.decoder_rnn = nn.LSTM(ninp + nhid, nhid, nlayers,dropout=dropout)
 
         # or
         # BoW
@@ -45,22 +51,12 @@ class VAEModel(nn.Module):
             self.linear = nn.Linear(nhid+ninp, nhid)
         else:
             raise NotImplementedError
+
+
         if tie_weights:
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
-            self.decoder.weight = self.emb.weight
-        """
-        # Optionally tie weights as in:
-        # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
-        # https://arxiv.org/abs/1608.05859
-        # and
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
-        if tie_weights:
-            if nhid != ninp:
-                raise ValueError('When using the tied flag, nhid must be equal to emsize')
-            self.decoder.weight = self.encoder.weight
-        """
+            self.decoder_out.weight = self.emb.weight
 
     def reparameterize(self, mu, logvar):
         if self.training:
@@ -82,12 +78,23 @@ class VAEModel(nn.Module):
         """
         batch_sz = input.size()[1]
         emb = self.drop(self.emb(input))
+        if self.dist == 'nor':
+            mu, logvar = self.encode(emb)
+            z = self.reparameterize(mu, logvar)     # z: batch, hid_dim
 
-        mu, logvar = self.encode(emb)
-        z = self.reparameterize(mu, logvar)     # z: batch, hid_dim
+            hidden = self.convert_z_to_hidden(z, batch_sz)
+            return emb, hidden, mu, logvar
+        elif self.dist == 'vmf':
+            mu = self.encode(emb)
+            mu = mu.cpu()
+            z = self.vmf.sample_vMF(mu)
+            z=z.cuda()
 
-        hidden = self.convert_z_to_hidden(z, batch_sz)
-        return emb, hidden, mu, logvar
+            hidden = self.convert_z_to_hidden(z, batch_sz)
+            return emb, hidden, mu
+        else:
+            raise NotImplementedError
+
 
     def encode(self, emb):
         """
@@ -104,7 +111,12 @@ class VAEModel(nn.Module):
         assert h.size()[0] == self.nlayers*2
         assert h.size()[1] == batch_sz
         x = torch.cat((h,c), dim=0).permute(1, 0, 2).contiguous().view(batch_sz, -1)
-        return self.fc_mu(x), self.fc_logvar(x)
+        if self.dist =='nor':
+            return self.fc_mu(x), self.fc_logvar(x)
+        elif self.dist =='vmf':
+            return self.fc(x)
+        else:
+            raise NotImplementedError
 
     def forward(self, input):
         """
@@ -115,13 +127,15 @@ class VAEModel(nn.Module):
 
         batch_sz = input.size()[1]
         seq_len = input.size()[0]
-
-        emb, hidden, mu, logvar = self.blstm_enc(input)
-
+        if self.dist == 'nor':
+            emb, hidden, mu, logvar = self.blstm_enc(input)
+        elif self.dist == 'vmf':
+            emb, hidden, mu = self.blstm_enc(input)
+            logvar = None
         if self.dec_type == 'lstm':
             lat_to_cat = hidden[0][0].unsqueeze(0).expand(seq_len, batch_sz, -1)
             emb = torch.cat([emb, lat_to_cat], dim=2)
-            output, hidden = self.rnn(emb, hidden)
+            output, hidden = self.decoder_rnn(emb, hidden)
         elif self.dec_type =='bow':
             # avg embedding: seq_len, batch_sz, hid_dim
             emb = torch.mean(emb, dim=0)        # torch.Size([20, 39])
@@ -142,7 +156,7 @@ class VAEModel(nn.Module):
             raise NotImplementedError
 
         output = self.drop(output)
-        decoded = self.decoder(output.view(output.size(0) * output.size(1), output.size(2)))
+        decoded = self.decoder_out(output.view(output.size(0) * output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), mu, logvar
 
     def forward_decode(self, args, input, ntokens):

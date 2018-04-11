@@ -110,7 +110,7 @@ def evaluate(args, model, corpus, data_source, crit=nn.CrossEntropyLoss(ignore_i
             output = model(data)[0]
         output_flat = output.view(-1, ntokens)
         total_loss += seq_len * bsz * crit(output_flat, targets).data
-        cnt += seq_len * bsz
+        cnt += (1 + seq_len) * bsz
     return total_loss[0] / cnt
 
 
@@ -174,11 +174,11 @@ def schedule(epo, eval=False):
     if eval:
         return 1
     if epo < 4:
-        return 0.001
+        return 0.01
     elif epo <= 24:
-        return (epo - 4) / 20
+        return 0.5 * (epo - 4) / 20
     else:
-        return 1
+        return 1 * 0.5
 
 
 def kld(mu, logvar, kl_weight=1):
@@ -191,4 +191,3 @@ def kld(mu, logvar, kl_weight=1):
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / bsz
     KLD *= kl_weight
     return KLD
-

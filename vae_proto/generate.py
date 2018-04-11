@@ -70,22 +70,3 @@ test_data = util.make_batch(args,corpus.test, args.eval_batch_size, shuffle=Fals
 nll = util.decode_inputless(args, model, corpus, test_data)
 ppl = math.exp(nll)
 print(nll, ppl)
-
-
-# hidden = model.init_hidden(1)
-# input = Variable(torch.rand(1, 1).mul(ntokens).long(), volatile=True)
-# if args.cuda:
-#     input.data = input.data.cuda()
-#
-# with open(args.outf, 'w') as outf:
-#     for i in range(args.words):
-#         output, hidden = model(input, hidden)
-#         word_weights = output.squeeze().data.div(args.temperature).exp().cpu()
-#         word_idx = torch.multinomial(word_weights, 1)[0]
-#         input.data.fill_(word_idx)
-#         word = corpus.dictionary.idx2word[word_idx]
-#
-#         outf.write(word + ('\n' if i % 20 == 19 else ' '))
-#
-#         if i % args.log_interval == 0:
-#             print('| Generated {}/{} words'.format(i, args.words))

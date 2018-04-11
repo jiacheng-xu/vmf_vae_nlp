@@ -44,7 +44,7 @@ class Corpus(object):
                     words = words[:end_idx]
                 if len(words) <= 1:
                     continue
-                # words = line.split() + ['<eos>']
+                words = line.split() + ['<eos>']
                 len_stat.append(len(words))
                 # tokens += len(words)
                 tmp_seq = []
@@ -61,3 +61,43 @@ class Corpus(object):
         print("Number of samples: {}".format(len(bag)))
         print("Avg len: {}".format(sum(len_stat)/len(len_stat)))
         return bag
+
+
+class NewsCorpus(object):
+
+    def __init__(self, path):
+        self.dictionary = Dictionary()
+        self.test, self.test_cnt = self.read_data(os.path.join(path, 'test.feat'))
+        self.train, self.train_cnt = self.read_data(os.path.join(path, 'train.feat'))
+
+    def read_data(self, path_file):
+        _id = 0
+        idx = []
+        data = []
+        word_count = []
+        fin = open(path_file)
+        while True:
+            line = fin.readline()
+            if not line:
+                break
+            id_freqs = line.split()
+            doc = {}
+            count = 0
+            for id_freq in id_freqs[1:]:
+                items = id_freq.split(':')
+                # python starts from 0
+                doc[int(items[0]) - 1] = int(items[1])
+                count += int(items[1])
+            if count > 0:
+                idx.append(_id)
+                _id += 1
+                data.append(doc)
+                word_count.append(count)
+        fin.close()
+        # sorted_idx = sorted(idx, key=lambda sample: word_count[sample], reverse=True)
+        # new_data = []
+        # new_count = []
+        # for i, this_id in enumerate(sorted_idx):
+        #     new_data.append(data[this_id])
+        #     new_count.append(word_count[this_id])
+        return data, word_count
