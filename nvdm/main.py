@@ -4,9 +4,9 @@ import logging
 import math
 import os
 import time
-
-import numpy as np
 import torch
+import numpy as np
+
 from tensorboardX import SummaryWriter
 
 import nvdm.util as util
@@ -121,8 +121,6 @@ def train(train_batches, glob_iteration):
 
     acc_loss = 0
     acc_kl_loss = 0
-    acc_total_loss = 0
-    acc_ppl = 0
     word_cnt = 0
     doc_cnt = 0
     acc_real_ppl = 0
