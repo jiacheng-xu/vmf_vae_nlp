@@ -22,16 +22,16 @@ def set_save_name_log(args):
         args.emsize,
         args.nhid, args.lat_dim, args.lr,
         args.dropout)
-    args.writer = SummaryWriter(log_dir='exps/' + args.save_name)
+    writer = SummaryWriter(log_dir='exps/' + args.save_name)
     log_name = args.save_name + '.log'
     logging.basicConfig(filename=log_name, level=logging.INFO)
-    return args
+    return args, writer
 
 
 def main():
     args = NVLL.argparser.parse_arg()
     set_seed(args)
-    args = set_save_name_log(args)
+    args, writer = set_save_name_log(args)
     print("Current dir {}".format(os.getcwd()))
     if args.model == 'nvdm':
         from NVLL.data.ng import DataNg
@@ -43,7 +43,7 @@ def main():
                        n_sample=5, dist=args.dist)
         if torch.cuda.is_available():
             model = model.cuda()
-        runner = Runner(args, model, data)
+        runner = Runner(args, model, data, writer)
         runner.start()
         runner.end()
     elif args.model == 'nvrnn':
@@ -55,7 +55,7 @@ def main():
                        dropout=args.dropout, tie_weights=True)
         if torch.cuda.is_available():
             model = model.cuda()
-        runner = Runner(args, model, data)
+        runner = Runner(args, model, data, writer)
         runner.start()
         runner.end()
 

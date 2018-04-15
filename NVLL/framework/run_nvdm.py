@@ -13,11 +13,11 @@ from NVLL.util.util import schedule, GVar
 
 
 class Runner():
-    def __init__(self, args, model, data):
+    def __init__(self, args, model, data, writer):
         self.args = args
         self.data = data
         self.model = model
-        self.writer = args.writer
+        self.writer = writer
 
     def start(self):
         print("Model {}".format(self.model))

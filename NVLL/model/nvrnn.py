@@ -2,18 +2,13 @@ import torch
 import torch.nn as nn
 import numpy
 from NVLL.dist.gauss import Gauss
-from NVLL.dist.vmf import vMF
+from NVLL.dist.stable_vmf import vMF
 from NVLL.util.util import GVar
 
 
 class RNNVAE(nn.Module):
     """Container module with an optional encoder, a prob latent module, and a RNN decoder."""
 
-    def lstm_funct(self, x):
-        batch_sz = x.size()[1]
-        _, (h_n, c_n) = self.enc_lstm(x)
-        H = torch.cat((h_n, c_n), dim=0).permute(1, 0, 2).contiguous().view(batch_sz, 4 * self.nhid)
-        return self.hid4_to_lat(H)
 
     def __init__(self, args, enc_type, ntoken, ninp, nhid, lat_dim, nlayers, dropout=0.5, tie_weights=False):
 
@@ -49,7 +44,7 @@ class RNNVAE(nn.Module):
             else:
                 raise NotImplementedError
         elif self.dist_type == 'zero':
-            self.enc = torch.zeros()  # TODO
+            self.enc = self.baseline_function
         else:
             raise NotImplementedError
 
@@ -57,7 +52,7 @@ class RNNVAE(nn.Module):
         if args.dist == 'nor':
             self.dist = Gauss(nhid, lat_dim)  # 2 for bidirect, 2 for h and
         elif args.dist == 'vmf':
-            self.dist = vMF(nhid, lat_dim)
+            self.dist = vMF(nhid, lat_dim, kappa=self.args.kappa)
         elif args.dist == 'sph':
             pass
         elif args.dist == 'zero':
@@ -71,13 +66,22 @@ class RNNVAE(nn.Module):
         if args.fly:
             self.decoder_rnn = nn.LSTMCell(ninp + nhid, nhid, nlayers)
         else:
-            self.decoder_rnn = nn.LSTM(ninp + nhid, nhid, nlayers, dropout=dropout)
+            self.decoder_rnn = nn.LSTM(ninp + lat_dim, nhid, nlayers, dropout=dropout)
 
         if tie_weights:
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder_out.weight = self.emb.weight
 
+    def lstm_funct(self, x):
+        batch_sz = x.size()[1]
+        _, (h_n, c_n) = self.enc_lstm(x)
+        H = torch.cat((h_n, c_n), dim=0).permute(1, 0, 2).contiguous().view(batch_sz, 4 * self.nhid)
+        return self.hid4_to_lat(H)
+
+    def baseline_function(self, x):
+        seq_len, batch_sz = x.size()
+        return torch.transpose(x, 1, 0)
     def dropword(self, emb, drop_rate=0.3):
         if self.FLAG_train:
             UNKs = GVar(torch.ones(emb.size()[0], emb.size()[1]).long() * 2)
@@ -119,12 +123,10 @@ class RNNVAE(nn.Module):
     def forward_build_lat(self, hidden):
         # hidden: batch_sz, nhid
         if self.args.dist == 'nor':
-            tup, kld, vecs = self.dist.build_bow_rep(hidden, 1)  # 2 for bidirect, 2 for h and
-            out = vecs[0]
+            tup, kld, out = self.dist.build_bow_rep(hidden, 1)  # 2 for bidirect, 2 for h and
 
         elif self.args.dist == 'vmf':
-            tup, kld, vecs = self.dist.build_bow_rep(hidden, 1)
-            out = vecs[0]
+            tup, kld, out = self.dist.build_bow_rep(hidden, 1)
 
         elif self.args.dist == 'sph':
             norms = torch.norm(hidden, p=2, dim=1, keepdim=True)
@@ -146,13 +148,15 @@ class RNNVAE(nn.Module):
 
         # Dropword
         emb = self.dropword(emb)
-
         lat_to_cat = lat_code.unsqueeze(0).expand(seq_len, batch_sz, -1)
         emb = torch.cat([emb, lat_to_cat], dim=2)
 
         # convert z to init h and c
         # (num_layers * num_directions, batch, hidden_size)
         init_h, init_c = self.convert_z_to_hidden(lat_code, batch_sz)
+        # print(init_c.size(), init_h.size())
+        # print(emb.size())
+        # print(self.decoder_rnn)
         output, hidden = self.decoder_rnn(emb, (init_h, init_c))
 
         # output.size       (seq_len, batch, hidden_size)

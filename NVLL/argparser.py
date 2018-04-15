@@ -10,12 +10,12 @@ def parse_arg():
     parser.add_argument('--fly', default=False, action='store_true')
     parser.add_argument('--enc_type', type=str, default='lstm', help='lstm or bow')
     parser.add_argument('--model', type=str, default='nvrnn', help='nvdm or nvrnn')
-    parser.add_argument('--dist', type=str, default='sph', help='nor or vmf or zero')
+    parser.add_argument('--dist', type=str, default='vmf', help='nor or vmf or zero')
     parser.add_argument('--kappa', type=float, default=5)
 
-    parser.add_argument('--emsize', type=int, default=800, help='size of word embeddings')
-    parser.add_argument('--nhid', type=int, default=800, help='number of hidden units per layer')
-    parser.add_argument('--lat_dim', type=int, default=800, help='dim of latent vec z')
+    parser.add_argument('--emsize', type=int, default=400, help='size of word embeddings')
+    parser.add_argument('--nhid', type=int, default=400, help='number of hidden units per layer')
+    parser.add_argument('--lat_dim', type=int, default=200, help='dim of latent vec z')
     parser.add_argument('--nlayers', type=int, default=1)
 
     parser.add_argument('--lr', type=float, default=0.0001,
@@ -46,6 +46,6 @@ def parse_arg():
     parser.add_argument('--load', type=str, default=None, help='Name of previous model to be restored')
 
     parser.add_argument('--log_interval', type=int, default=100)
-
+    parser.add_argument('--optim', type=str, default='adam', help='sgd or adam')
     args = parser.parse_args()
     return args

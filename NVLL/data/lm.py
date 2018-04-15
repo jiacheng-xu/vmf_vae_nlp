@@ -26,7 +26,7 @@ class DataLM(object):
         with open(path, 'r') as f:
             for line in f:
                 words = line.split()
-                if len(words) <= 1:
+                if len(words) < 1:
                     continue
                 words = line.split() + ['<eos>']
                 len_stat.append(len(words))

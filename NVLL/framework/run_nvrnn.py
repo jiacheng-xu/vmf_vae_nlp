@@ -2,7 +2,7 @@ import logging
 import math
 import random
 import time
-
+import numpy
 import torch
 
 from NVLL.util.util import schedule, GVar
@@ -10,12 +10,20 @@ from NVLL.model.nvrnn import RNNVAE
 
 
 class Runner():
-    def __init__(self, args, model, data):
+    def __init__(self, args, model, data, writer):
         self.args = args
         self.data = data
         self.model = model
-        self.writer = args.writer
+        self.writer = writer
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
+
+        self.args.cur_lr = self.args.lr
+        if args.optim == 'sgd':
+            self.optim = torch.optim.SGD(model.parameters(), lr=self.args.lr)
+        elif args.optim == 'adam':
+            self.optim = torch.optim.Adam(model.parameters(), lr=self.args.lr)
+        else:
+            raise NotImplementedError
 
     def start(self):
         print("Model {}".format(self.model))
@@ -37,11 +45,13 @@ class Runner():
                 Runner.log_eval(cur_loss, cur_kl, val_loss, False)
 
                 if not best_val_loss or val_loss < best_val_loss:
-                    with open(self.args.save_name, 'wb') as f:
+                    with open(self.args.save_name + ".model", 'wb') as f:
                         torch.save(self.model.state_dict(), f)
+                    with open(self.args.save_name + ".args", 'wb') as f:
+                        torch.save(self.args, f)
                     best_val_loss = val_loss
                 else:
-                    self.args.lr /= 2
+                    self.args.cur_lr /= 1.2
 
         except KeyboardInterrupt:
             print('-' * 89)
@@ -51,9 +61,11 @@ class Runner():
         # Load the best saved model.
         model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary), self.args.emsize,
                        self.args.nhid, self.args.lat_dim, self.args.nlayers,
-                       dropout=self.args.dropout, tie_weights=True)
-        model.load_state_dict(torch.load(self.args.save_name))
+                       dropout=self.args.dropout, tie_weights=self.args.tied)
+        model.load_state_dict(torch.load(self.args.save_name + '.model'))
         model = model.cuda()
+        print(model)
+        print(self.args)
         # with open(self.args.save_name, 'rb') as f:
         #     model = torch.load(f)
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
@@ -94,7 +106,8 @@ class Runner():
         model.FLAG_train = True
         start_time = time.time()
 
-        self.optim = torch.optim.Adam(model.parameters(), lr=self.args.lr)
+        if self.args.optim == 'sgd':
+            self.optim = torch.optim.SGD(model.parameters(), lr=self.args.cur_lr)
 
         acc_loss = 0
         acc_kl_loss = 0
@@ -119,7 +132,7 @@ class Runner():
             flatten_decoded = decoded.view(-1, self.model.ntoken)
             flatten_target = target.view(-1)
             loss = self.criterion(flatten_decoded, flatten_target)  # batch_sz * seq, loss
-            sum_kld = torch.sum(kld)
+            sum_kld = torch.sum(kld * batch_sz)
             total_loss = loss * seq_len * batch_sz + sum_kld * self.args.kl_weight
 
             total_loss.backward()
