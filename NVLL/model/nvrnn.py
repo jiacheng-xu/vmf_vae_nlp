@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy
-from NVLL.dist.gauss import Gauss
-from NVLL.dist.stable_vmf import vMF
+from NVLL.distribution.gauss import Gauss
+from NVLL.distribution.stable_vmf import vMF
 from NVLL.util.util import GVar
 
 
@@ -75,13 +75,15 @@ class RNNVAE(nn.Module):
 
     def lstm_funct(self, x):
         batch_sz = x.size()[1]
-        _, (h_n, c_n) = self.enc_lstm(x)
-        H = torch.cat((h_n, c_n), dim=0).permute(1, 0, 2).contiguous().view(batch_sz, 4 * self.nhid)
-        return self.hid4_to_lat(H)
+        output, (h_n, c_n) = self.enc_lstm(x)
+        concated_h_c = torch.cat((h_n[0], h_n[1], c_n[0], c_n[1]), dim=1)  # TODO
+        # H = concated_h_c.permute(1, 0, 2).contiguous().view(batch_sz, 4 * self.nhid)
+        return self.hid4_to_lat(concated_h_c)
 
     def baseline_function(self, x):
         seq_len, batch_sz = x.size()
         return torch.transpose(x, 1, 0)
+
     def dropword(self, emb, drop_rate=0.3):
         if self.FLAG_train:
             UNKs = GVar(torch.ones(emb.size()[0], emb.size()[1]).long() * 2)
@@ -232,9 +234,9 @@ class RNNVAE(nn.Module):
 
         batch_sz = input.size()[1]
         seq_len = input.size()[0]
-        if self.dist == 'nor':
+        if self.distribution == 'nor':
             emb, hidden, mu, logvar = self.blstm_enc(input)
-        elif self.dist == 'vmf':
+        elif self.distribution == 'vmf':
             emb, hidden, mu = self.blstm_enc(input)
             logvar = None
         if self.dec_type == 'lstm':

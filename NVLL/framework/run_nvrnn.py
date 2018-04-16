@@ -92,7 +92,8 @@ class Runner():
                 '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Total Loss {:5.2f} | '
                 'PPL {:8.2f}'.format(epoch, (time.time() - epoch_start_time), args.kl_weight,
                                      recon_loss, kl_loss, val_loss, math.exp(val_loss)))
-            writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
+            if writer is not None:
+                writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
                                          'val_loss': val_loss,
                                          'ppl': math.exp(val_loss)
                                          }, global_step=glob_iter)
@@ -123,7 +124,7 @@ class Runner():
 
             glob_iter += 1
 
-            model.zero_grad()
+            # model.zero_grad()
 
             target = GVar(batch)
 
@@ -132,7 +133,7 @@ class Runner():
             flatten_decoded = decoded.view(-1, self.model.ntoken)
             flatten_target = target.view(-1)
             loss = self.criterion(flatten_decoded, flatten_target)  # batch_sz * seq, loss
-            sum_kld = torch.sum(kld * batch_sz)
+            sum_kld = torch.sum(kld)
             total_loss = loss * seq_len * batch_sz + sum_kld * self.args.kl_weight
 
             total_loss.backward()

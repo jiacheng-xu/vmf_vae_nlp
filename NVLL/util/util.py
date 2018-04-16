@@ -1,3 +1,5 @@
+from collections import OrderedDict
+from operator import itemgetter
 import torch
 
 
@@ -31,3 +33,12 @@ class Dictionary(object):
 
     def __len__(self):
         return len(self.idx2word)
+
+    def save(self):
+        file_name = 'PTB.dict'
+        ordered = OrderedDict(sorted(self.word2idx.items(), key=itemgetter(1)))
+        wt_string = ''
+        for i in ordered:
+            wt_string += i + '\n'
+        with open(file_name, 'w') as f:
+            f.write(wt_string)

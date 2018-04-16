@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description='PyTorch VAE LSTM Language Model')
 parser.add_argument('--data_name', type=str, default='20news', help='name of the data corpus')
 parser.add_argument('--data_path', type=str, default='../data/20news', help='location of the data corpus')
 
-parser.add_argument('--dist', type=str, default='nor', help='nor or vmf')
+parser.add_argument('--distribution', type=str, default='nor', help='nor or vmf')
 
 parser.add_argument('--kappa', type=float, default=5)
 

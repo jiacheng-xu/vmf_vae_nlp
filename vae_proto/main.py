@@ -20,7 +20,7 @@ parser.add_argument('--data_path', type=str, default='../data/20news', help='loc
 parser.add_argument('--encoder', type=str, default='bow', help='bow or lstm')
 parser.add_argument('--decoder', type=str, default='bow', help='lstm or bow; Using LSTM or BoW as decoder')
 
-parser.add_argument('--dist',type=str,default=None, help='default: None (no vae) ; nor or vmf')
+parser.add_argument('--distribution', type=str, default=None, help='default: None (no vae) ; nor or vmf')
 
 parser.add_argument('--kappa',type=float, default=5)
 

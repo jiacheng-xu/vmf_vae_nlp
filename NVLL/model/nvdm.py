@@ -1,7 +1,7 @@
 import torch
 from NVLL.util.util import GVar
-from NVLL.dist.gauss import Gauss
-from NVLL.dist.vmf import vMF
+from NVLL.distribution.gauss import Gauss
+from NVLL.distribution.vmf import vMF
 
 
 class BowVAE(torch.nn.Module):
@@ -24,7 +24,7 @@ class BowVAE(torch.nn.Module):
             self.dist = Gauss(n_lat, n_lat)
         elif self.dist_type == 'hnor':
             pass
-            # self.dist = HighVarGauss(n_lat)
+            # self.distribution = HighVarGauss(n_lat)
         elif self.dist_type == 'vmf':
             self.dist = vMF(n_lat, n_lat)
         else:

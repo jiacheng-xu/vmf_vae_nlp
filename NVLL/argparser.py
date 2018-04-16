@@ -10,7 +10,7 @@ def parse_arg():
     parser.add_argument('--fly', default=False, action='store_true')
     parser.add_argument('--enc_type', type=str, default='lstm', help='lstm or bow')
     parser.add_argument('--model', type=str, default='nvrnn', help='nvdm or nvrnn')
-    parser.add_argument('--dist', type=str, default='vmf', help='nor or vmf or zero')
+    parser.add_argument('--distribution', type=str, default='vmf', help='nor or vmf or zero')
     parser.add_argument('--kappa', type=float, default=5)
 
     parser.add_argument('--emsize', type=int, default=400, help='size of word embeddings')
@@ -47,5 +47,9 @@ def parse_arg():
 
     parser.add_argument('--log_interval', type=int, default=100)
     parser.add_argument('--optim', type=str, default='adam', help='sgd or adam')
+
+    parser.add_argument('--klw_bound', type=float, default=1., help='Upper bound for weight for kl term.')
+    parser.add_argument('--mean_reg', type=float, default=0.001)
+
     args = parser.parse_args()
     return args
