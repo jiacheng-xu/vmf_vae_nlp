@@ -229,43 +229,6 @@ class RNNVAE(nn.Module):
         else:
             raise NotImplementedError
 
-    """
-    def forward(self, input):
-
-        batch_sz = input.size()[1]
-        seq_len = input.size()[0]
-        if self.distribution == 'nor':
-            emb, hidden, mu, logvar = self.blstm_enc(input)
-        elif self.distribution == 'vmf':
-            emb, hidden, mu = self.blstm_enc(input)
-            logvar = None
-        if self.dec_type == 'lstm':
-            lat_to_cat = hidden[0][0].unsqueeze(0).expand(seq_len, batch_sz, -1)
-            emb = torch.cat([emb, lat_to_cat], dim=2)
-            output, hidden = self.decoder_rnn(emb, hidden)
-        elif self.dec_type =='bow':
-            # avg embedding: seq_len, batch_sz, hid_dim
-            emb = torch.mean(emb, dim=0)        # torch.Size([20, 39])
-            lat_to_cat = hidden[0][0]           # torch.Size([20, 49])
-            fusion = torch.cat((emb, lat_to_cat), dim=1) # torch.Size([20, 39+49])
-            # output seq_len, batch, hidden_size * num_directions
-            output = GVar(torch.FloatTensor(seq_len, batch_sz, self.nhid ))
-            if self.args.cuda:
-                output= output.cuda()
-            for t in range(seq_len):
-                noise = 0.1 * GVar(fusion.data.new(fusion.size()).normal_(0, 1))
-                if self.args.cuda:
-                    noise = noise.cuda()
-                fusion_with_noise = fusion + noise
-                fusion_with_noise = self.linear(fusion_with_noise)
-                output[t] = fusion_with_noise
-        else:
-            raise NotImplementedError
-
-        output = self.drop(output)
-        decoded = self.decoder_out(output.view(output.size(0) * output.size(1), output.size(2)))
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)), mu, logvar
-"""
 
     def forward_decode(self, args, input, ntokens):
         """

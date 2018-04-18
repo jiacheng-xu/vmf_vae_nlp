@@ -10,7 +10,7 @@ import torch
 from NVLL.data.ng import DataNg
 from NVLL.data.lm import DataLM
 from NVLL.util.util import schedule, GVar
-
+from NVLL.model.nvdm import BowVAE
 
 class Runner():
     def __init__(self, args, model, data, writer):
@@ -18,7 +18,13 @@ class Runner():
         self.data = data
         self.model = model
         self.writer = writer
-
+        self.args.cur_lr = self.args.lr
+        if args.optim == 'sgd':
+            self.optim = torch.optim.SGD(model.parameters(), lr=self.args.lr)
+        elif args.optim == 'adam':
+            self.optim = torch.optim.Adam(model.parameters(), lr=self.args.lr)
+        else:
+            raise NotImplementedError
     def start(self):
         print("Model {}".format(self.model))
         logging.info("Model {}".format(self.model))
@@ -41,8 +47,10 @@ class Runner():
                 Runner.log_eval(cur_loss, cur_kl, val_loss, False)
 
                 if not best_val_loss or val_loss < best_val_loss:
-                    with open(self.args.save_name, 'wb') as f:
-                        torch.save(self.model, f)
+                    with open(self.args.save_name + ".model", 'wb') as f:
+                        torch.save(self.model.state_dict(), f)
+                    with open(self.args.save_name + ".args", 'wb') as f:
+                        torch.save(self.args, f)
                     best_val_loss = val_loss
 
         except KeyboardInterrupt:
@@ -51,8 +59,15 @@ class Runner():
 
     def end(self):
         # Load the best saved model.
-        with open(self.args.save_name, 'rb') as f:
-            model = torch.load(f)
+        model = BowVAE(self.args, vocab_size=2000, n_hidden=self.args.nhid,
+                       n_lat=self.args.lat_dim,
+                       n_sample=3, dist=self.args.dist)
+        model.load_state_dict(torch.load(self.args.save_name + '.model'))
+        model = model.cuda()
+        print(model)
+        print(self.args)
+        # with open(self.args.save_name, 'rb') as f:
+        #     model = torch.load(f)
         model = model.eval()
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test[0], self.data.test[1], self.data.test_batches)
@@ -73,21 +88,24 @@ class Runner():
 
     @staticmethod
     def log_instant(writer, args, glob_iter, epoch, epoch_start_time, recon_loss, kl_loss, val_loss):
-        print(
+        try:
+            print(
             '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Total Loss {:5.2f} | '
             'PPL {:8.2f}'.format(epoch, (time.time() - epoch_start_time), args.kl_weight,
                                  recon_loss, kl_loss, val_loss, math.exp(val_loss)))
-        writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
+            if writer is not None:
+                writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
                                      'val_loss': val_loss,
                                      'ppl': math.exp(val_loss)
                                      }, global_step=glob_iter)
+        except OverflowError:
+            print('Overflow')
         # with open('Valid_PPL_' + log_name, 'w') as f:
         #     f.write("{}\t{}".format(epoch, math.exp(val_loss)))
 
     def train_epo(self, args, model, train_batches, epo, epo_start_time, glob_iter):
         model.train()
         start_time = time.time()
-        optim = torch.optim.Adam(model.parameters(), lr=self.args.lr)
 
         acc_loss = 0
         acc_kl_loss = 0
@@ -97,7 +115,7 @@ class Runner():
         doc_cnt = 0
 
         for idx, batch in enumerate(train_batches):
-            optim.zero_grad()
+            self.optim.zero_grad()
 
             glob_iter += 1
             data_batch, count_batch = DataNg.fetch_data(
@@ -107,7 +125,7 @@ class Runner():
 
             data_batch = GVar(torch.FloatTensor(data_batch))
 
-            recon_loss, kld, _ = model(data_batch)
+            recon_loss, kld, _, tup, vecs = model(data_batch)
 
             # if idx % (args.log_interval) == 0:
             #     print("RecLoss: %f\tKL: %f" % (torch.mean(recon_loss).data, torch.mean(kld).data))
@@ -119,7 +137,7 @@ class Runner():
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
             torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
 
-            optim.step()
+            self.optim.step()
 
             count_batch = torch.FloatTensor(count_batch).cuda()
             doc_num = len(count_batch)
@@ -165,7 +183,7 @@ class Runner():
 
             data_batch = GVar(torch.FloatTensor(data_batch))
 
-            recon_loss, kld, _ = model(data_batch)
+            recon_loss, kld, _, tup, vecs = model(data_batch)
             count_batch = torch.FloatTensor(count_batch).cuda()
             real_loss = torch.div((recon_loss + kld).data, count_batch)
             doc_num = len(count_batch)

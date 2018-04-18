@@ -1,32 +1,33 @@
 import torch
 from NVLL.util.util import GVar
 from NVLL.distribution.gauss import Gauss
-from NVLL.distribution.vmf import vMF
-
+from NVLL.distribution.stable_vmf import vMF
+from NVLL.distribution.unifvmf import unif_vMF
 
 class BowVAE(torch.nn.Module):
-    def __init__(self, vocab_size, n_hidden, n_lat, n_sample, dist):
-        super().__init__()
+    def __init__(self, args, vocab_size, n_hidden, n_lat, n_sample, dist):
+        super(BowVAE, self).__init__()
+        self.args = args
+
         self.vocab_size = vocab_size
         self.n_hidden = n_hidden
         self.n_lat = n_lat
         self.n_sample = n_sample
         self.dist_type = dist
-        self.dropout = torch.nn.Dropout(p=0.2)
+        self.dropout = torch.nn.Dropout(p=args.dropout)
         # crit
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=-1)
         # Encoding
         self.enc_vec = torch.nn.Linear(self.vocab_size, self.n_hidden)
-        self.active = torch.nn.LeakyReLU()
-        self.enc_vec_2 = torch.nn.Linear(self.n_hidden, self.n_lat)
+        self.active = torch.nn.Tanh()
+        self.enc_vec_2 = torch.nn.Linear(self.n_hidden, self.n_hidden)
 
         if self.dist_type == 'nor':
-            self.dist = Gauss(n_lat, n_lat)
-        elif self.dist_type == 'hnor':
-            pass
-            # self.distribution = HighVarGauss(n_lat)
+            self.dist = Gauss(n_hidden, n_lat)
         elif self.dist_type == 'vmf':
-            self.dist = vMF(n_lat, n_lat)
+            self.dist = vMF(n_hidden, n_lat, kappa=self.args.kappa)
+        elif self.dist_type == 'unifvmf':
+            self.dist = unif_vMF(n_hidden, n_lat, kappa=self.args.kappa)
         else:
             raise NotImplementedError
 
@@ -37,6 +38,7 @@ class BowVAE(torch.nn.Module):
         batch_sz = x.size()[0]
 
         linear_x = self.enc_vec(x)
+        linear_x = self.dropout(linear_x)
         active_x = self.active(linear_x)
         linear_x_2 = self.enc_vec_2(active_x)
 
@@ -44,8 +46,8 @@ class BowVAE(torch.nn.Module):
 
         ys = 0
         for i, v in enumerate(vecs):
-            logit = torch.nn.functional.log_softmax(self.out(v))
-            logit = self.dropout(logit)
+            logit = self.dropout(self.out(v))
+            logit = torch.nn.functional.log_softmax(logit)
             ys += torch.mul(x, logit)
         # out = self.out(vec)
         # logits = torch.nn.functional.log_softmax(out)
@@ -57,4 +59,4 @@ class BowVAE(torch.nn.Module):
 
         total_loss = kld + recon_loss
 
-        return recon_loss, kld, total_loss
+        return recon_loss, kld, total_loss, tup, vecs

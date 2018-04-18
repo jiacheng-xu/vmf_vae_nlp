@@ -17,11 +17,11 @@ def set_seed(args):
 
 
 def set_save_name_log(args):
-    args.save_name = 'Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}'.format(
+    args.save_name = 'Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}'.format(
         args.data_name, str(args.dist), args.model,
         args.emsize,
         args.nhid, args.lat_dim, args.lr,
-        args.dropout)
+        args.dropout, args.kappa)
     writer = SummaryWriter(log_dir='exps/' + args.save_name)
     log_name = args.save_name + '.log'
     logging.basicConfig(filename=log_name, level=logging.INFO)
@@ -39,8 +39,8 @@ def main():
         from NVLL.framework.run_nvdm import Runner
 
         data = DataNg(args)
-        model = BowVAE(vocab_size=2000, n_hidden=args.nhid, n_lat=args.lat_dim,
-                       n_sample=5, dist=args.dist)
+        model = BowVAE(args, vocab_size=2000, n_hidden=args.nhid, n_lat=args.lat_dim,
+                       n_sample=3, dist=args.dist)
         if torch.cuda.is_available():
             model = model.cuda()
         runner = Runner(args, model, data, writer)

@@ -10,8 +10,8 @@ def parse_arg():
     parser.add_argument('--fly', default=False, action='store_true')
     parser.add_argument('--enc_type', type=str, default='lstm', help='lstm or bow')
     parser.add_argument('--model', type=str, default='nvrnn', help='nvdm or nvrnn')
-    parser.add_argument('--distribution', type=str, default='vmf', help='nor or vmf or zero')
-    parser.add_argument('--kappa', type=float, default=5)
+    parser.add_argument('--dist', type=str, default='vmf', help='nor or vmf or zero')
+    parser.add_argument('--kappa', type=float, default=0.1)
 
     parser.add_argument('--emsize', type=int, default=400, help='size of word embeddings')
     parser.add_argument('--nhid', type=int, default=400, help='number of hidden units per layer')
