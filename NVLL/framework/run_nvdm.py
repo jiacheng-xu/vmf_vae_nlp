@@ -7,10 +7,14 @@ import time
 
 import torch
 
+import numpy as np
+
 from NVLL.data.ng import DataNg
 from NVLL.data.lm import DataLM
 from NVLL.util.util import schedule, GVar, maybe_cuda
 from NVLL.model.nvdm import BowVAE
+
+import random
 
 class Runner():
     def __init__(self, args, model, data, writer):
@@ -185,6 +189,7 @@ class Runner():
 
             recon_loss, kld, _, tup, vecs = model(data_batch)
             print("Batch TUP: " + repr(tup))
+            self.estimate_dispersion(tup["mu"])
             count_batch = maybe_cuda(torch.FloatTensor(count_batch))
             real_loss = torch.div((recon_loss + kld).data, count_batch)
             doc_num = len(count_batch)
@@ -214,5 +219,15 @@ class Runner():
         return cur_loss, cur_kl, cur_real_loss
 
     def estimate_dispersion(self, mu_mat):
+        mu_mat_nonvar = mu_mat.data
         # Sample pairs with replacement
-        print("Lol")
+        cos_sim = 0.0
+        num_samples = 100
+        for i in range(num_samples):
+            idx1 = random.randint(0, mu_mat.size(0) - 1)
+            idx2 = random.randint(0, mu_mat.size(0) - 1)
+            cos_sim += self.cos(mu_mat_nonvar[idx1], mu_mat_nonvar[idx2])
+        print("Avg cosine sim of mus across batch: " + repr(cos_sim/num_samples))
+
+    def cos(self, a, b):
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
