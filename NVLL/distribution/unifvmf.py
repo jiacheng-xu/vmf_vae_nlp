@@ -30,8 +30,8 @@ class unif_vMF(torch.nn.Module):
         # mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
         return {'mu': mu, 'kappa': kappa}
 
-    def compute_KLD(self, tup):
-        return self.kld
+    def compute_KLD(self, tup, batch_sz):
+        return self.kld.expand(batch_sz)
 
     @staticmethod
     def _vmf_kld(k, d):
@@ -53,7 +53,7 @@ class unif_vMF(torch.nn.Module):
         mu = tup['mu']
         kappa = tup['kappa']
 
-        kld = self.compute_KLD(tup)
+        kld = self.compute_KLD(tup, batch_sz)
         vecs = []
         if n_sample == 1:
             return tup, kld, self.sample_cell(mu, kappa)
