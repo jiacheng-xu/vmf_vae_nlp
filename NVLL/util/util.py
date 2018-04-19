@@ -9,6 +9,11 @@ def GVar(x):
     else:
         return torch.autograd.Variable(x)
 
+def maybe_cuda(x):
+    if torch.cuda.is_available():
+        return x.cuda()
+    else:
+        return x
 
 def schedule(epo):
     return float(torch.sigmoid(torch.ones(1) * (epo / 3 - 5)))

@@ -9,7 +9,7 @@ import torch
 
 from NVLL.data.ng import DataNg
 from NVLL.data.lm import DataLM
-from NVLL.util.util import schedule, GVar
+from NVLL.util.util import schedule, GVar, maybe_cuda
 from NVLL.model.nvdm import BowVAE
 
 class Runner():
@@ -139,7 +139,7 @@ class Runner():
 
             self.optim.step()
 
-            count_batch = torch.FloatTensor(count_batch).cuda()
+            count_batch = maybe_cuda(torch.FloatTensor(count_batch))
             doc_num = len(count_batch)
 
             real_loss = torch.div((recon_loss + kld).data, count_batch)
@@ -184,7 +184,7 @@ class Runner():
             data_batch = GVar(torch.FloatTensor(data_batch))
 
             recon_loss, kld, _, tup, vecs = model(data_batch)
-            count_batch = torch.FloatTensor(count_batch).cuda()
+            count_batch = maybe_cuda(torch.FloatTensor(count_batch))
             real_loss = torch.div((recon_loss + kld).data, count_batch)
             doc_num = len(count_batch)
             # remove nan
