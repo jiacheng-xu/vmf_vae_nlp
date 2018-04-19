@@ -184,6 +184,7 @@ class Runner():
             data_batch = GVar(torch.FloatTensor(data_batch))
 
             recon_loss, kld, _, tup, vecs = model(data_batch)
+            print("Batch TUP: " + repr(tup))
             count_batch = maybe_cuda(torch.FloatTensor(count_batch))
             real_loss = torch.div((recon_loss + kld).data, count_batch)
             doc_num = len(count_batch)
@@ -194,6 +195,7 @@ class Runner():
             # acc_real_ppl += torch.sum(real_ppl)
 
             acc_loss += torch.sum(recon_loss).data  #
+            print("Batch KLD: " + repr(torch.sum(kld.data)))
             acc_kl_loss += torch.sum(kld.data)
             count_batch = count_batch + 1e-12
 
@@ -210,3 +212,7 @@ class Runner():
         # Runner.log_eval(print_ppl)
         # print('loss {:5.2f} | KL {:5.2f} | ppl {:8.2f}'.format(            cur_loss, cur_kl, math.exp(print_ppl)))
         return cur_loss, cur_kl, cur_real_loss
+
+    def estimate_dispersion(self, mu_mat):
+        # Sample pairs with replacement
+        print("Lol")

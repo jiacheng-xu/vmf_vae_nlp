@@ -27,7 +27,9 @@ class unif_vMF(torch.nn.Module):
         # kappa = self.func_kappa(latent_code)
         kappa = self.kappa
         mu = self.func_mu(latent_code)
-        # mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
+        print("Mu norms pre-norming: (avg=" + repr(torch.mean(torch.norm(torch.norm(mu, p=2, dim=1, keepdim=True)))) + "; " +
+              repr(torch.norm(torch.norm(mu, p=2, dim=1, keepdim=True))))
+        mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
         return {'mu': mu, 'kappa': kappa}
 
     def compute_KLD(self, tup):
