@@ -14,12 +14,14 @@ class unif_vMF(torch.nn.Module):
         # self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
 
-        self.kld = GVar(torch.from_numpy(unif_vMF._vmf_kld(kappa, lat_dim)).float())
-
         self.noise_scaler = kappa
         self.norm_eps = 1
         self.norm_max = 10
         self.normclip = torch.nn.Hardtanh(0, self.norm_max - 1)
+
+        # KLD accounts for both VMF and uniform parts
+        kld_value = unif_vMF._vmf_kld(kappa, lat_dim) + self._uniform_kld(0., self.norm_eps, 0., self.norm_max)
+        self.kld = GVar(torch.from_numpy(np.array([kld_value])).float())
 
     def estimate_param(self, latent_code):
         # kappa = self.func_kappa(latent_code)
@@ -36,7 +38,14 @@ class unif_vMF(torch.nn.Module):
         tmp = (k * ((sp.iv(d / 2.0 + 1.0, k) + sp.iv(d / 2.0, k) * d / (2.0 * k)) / sp.iv(d / 2.0, k) - d / (2.0 * k)) \
                + d * np.log(k) / 2.0 - np.log(sp.iv(d / 2.0, k)) \
                - sp.loggamma(d / 2 + 1) - d * np.log(2) / 2).real
-        return np.array([tmp])
+        return tmp
+
+    @staticmethod
+    # KL divergence of Unix([x1,x2]) || Unif([y1,y2]), where [x1,x2] should be a subset of [y1,y2]
+    def _uniform_kld(x1, x2, y1, y2):
+        if x1 < y1 or x2 > y2:
+            raise Exception("KLD is infinite: Unif([" + repr(x1) + "," + repr(x2) + "])||Unif([" + repr(y1) + "," + repr(y2) + "])")
+        return np.log((y2 - y1)/(x2 - x1))
 
     def build_bow_rep(self, lat_code, n_sample):
         batch_sz = lat_code.size()[0]
