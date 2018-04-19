@@ -27,9 +27,7 @@ class unif_vMF(torch.nn.Module):
         # kappa = self.func_kappa(latent_code)
         kappa = self.kappa
         mu = self.func_mu(latent_code)
-        # print("Mu norms pre-norming: (avg=" + repr(torch.mean(torch.norm(mu, p=2, dim=1, keepdim=True)).data) + "); " +
-        #       repr(torch.norm(mu, p=2, dim=1, keepdim=True).data))
-        print("Mu norms pre-norming: (avg=" + repr(torch.mean(torch.norm(mu, p=2, dim=1, keepdim=True)).data[0]) + ")")
+        # print("Mu norms pre-norming: (avg=" + repr(torch.mean(torch.norm(mu, p=2, dim=1, keepdim=True)).data[0]) + ")")
         mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
         return {'mu': mu, 'kappa': kappa}
 
