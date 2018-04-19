@@ -27,7 +27,7 @@ class unif_vMF(torch.nn.Module):
         # kappa = self.func_kappa(latent_code)
         kappa = self.kappa
         mu = self.func_mu(latent_code)
-        mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
+        # mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
         return {'mu': mu, 'kappa': kappa}
 
     def compute_KLD(self, tup):
@@ -128,5 +128,7 @@ class unif_vMF(torch.nn.Module):
         KL loss is - log(maxvalue/eps)
         cut at maxvalue-eps, and add [0,eps] noise.
         """
+        # if np.random.rand()<0.05:
+        #     print(munorm[0])
         trand = torch.rand(1).expand(munorm.size()) * eps
         return (self.normclip(munorm) + GVar(trand))
