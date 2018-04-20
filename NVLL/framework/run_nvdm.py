@@ -64,7 +64,8 @@ class Runner():
         model = BowVAE(self.args, vocab_size=2000, n_hidden=self.args.nhid,
                        n_lat=self.args.lat_dim,
                        n_sample=3, dist=self.args.dist)
-        model.load_state_dict(torch.load(self.args.save_name + '.model'))
+        model.load_state_dict(torch.load(self.args.save_name + '.model'),
+                              strict=False)
         model = model.cuda()
         print(model)
         print(self.args)

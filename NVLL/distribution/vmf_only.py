@@ -13,8 +13,6 @@ class vMF(torch.nn.Module):
         self.kappa = kappa
         # self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
-        if norm_func:
-            self.func_norm = torch.nn.Linear(hid_dim, 1)
 
         self.norm_func = norm_func
 
