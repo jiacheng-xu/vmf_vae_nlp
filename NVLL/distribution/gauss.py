@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-
+import numpy as np
 
 class Gauss(nn.Module):
     # __slots__ = ['lat_dim', 'logvar', 'mean']
@@ -50,3 +50,7 @@ class Gauss(nn.Module):
             vec = torch.mul(torch.exp(logvar), eps) + mean
             vecs.append(vec)
         return tup, kld, vecs
+
+    def get_aux_loss_term(self, tup):
+
+        return torch.from_numpy(np.zeros([1]))

@@ -6,21 +6,39 @@ from NVLL.util.util import GVar
 
 
 class vMF(torch.nn.Module):
-    def __init__(self, hid_dim, lat_dim, kappa=1):
+    def __init__(self, hid_dim, lat_dim, kappa=1, norm_func=False):
         super().__init__()
         self.hid_dim = hid_dim
         self.lat_dim = lat_dim
         self.kappa = kappa
         # self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
+        if norm_func:
+            self.func_norm = torch.nn.Linear(hid_dim, 1)
+
+        self.norm_func = norm_func
+
         self.kld = GVar(torch.from_numpy(vMF._vmf_kld(kappa, lat_dim)).float())
 
     def estimate_param(self, latent_code):
-        # kappa = self.func_kappa(latent_code)
-        kappa = self.kappa
+        ret_dict = {}
+        ret_dict['kappa'] = self.kappa
+
+        # Only compute mu, use mu/mu_norm as mu,
+        #  use 1 as norm, use diff(mu_norm, 1) as redundant_norm
         mu = self.func_mu(latent_code)
-        mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
-        return {'mu': mu, 'kappa': kappa}
+
+        norm = torch.norm(mu, 2, 1, keepdim=True)
+        mu_norm_sq_diff_from_one = torch.pow(torch.add(norm, -1), 2)
+        redundant_norm = torch.sum(mu_norm_sq_diff_from_one)
+
+        ret_dict['norm'] = GVar(torch.ones_like(mu))
+        ret_dict['redundant_norm'] = redundant_norm
+
+        mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
+        ret_dict['mu'] = mu
+
+        return ret_dict
 
     def compute_KLD(self, tup):
         return self.kld
@@ -36,18 +54,20 @@ class vMF(torch.nn.Module):
         batch_sz = lat_code.size()[0]
         tup = self.estimate_param(latent_code=lat_code)
         mu = tup['mu']
+        norm = tup['norm']
         kappa = tup['kappa']
 
         kld = self.compute_KLD(tup)
         vecs = []
         if n_sample == 1:
-            return tup, kld, self.sample_cell(mu, kappa)
+            return tup, kld, self.sample_cell(mu, norm, kappa)
         for n in range(n_sample):
-            sample = self.sample_cell(mu, kappa)
+            sample = self.sample_cell(mu, norm, kappa)
             vecs.append(sample)
+        vecs = torch.cat(vecs, dim=0)
         return tup, kld, vecs
 
-    def sample_cell(self, mu, kappa):
+    def sample_cell(self, mu, norm, kappa):
         batch_sz, lat_dim = mu.size()
         result = []
         sampled_vecs = GVar(torch.FloatTensor(batch_sz, lat_dim))
@@ -69,7 +89,7 @@ class vMF(torch.nn.Module):
             # sampled_vec = torch.FloatTensor(sampled_vec)
             # result.append(sampled_vec)
 
-        return sampled_vecs
+        return sampled_vecs.unsqueeze(0)
 
     def _sample_weight(self, kappa, dim):
         """Rejection sampling scheme for sampling distance from center on

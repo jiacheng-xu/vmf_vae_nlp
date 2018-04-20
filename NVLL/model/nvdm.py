@@ -1,10 +1,13 @@
+import random
+
 import torch
-from NVLL.util.util import GVar
+
 from NVLL.distribution.gauss import Gauss
 from NVLL.distribution.vmf_only import vMF
 from NVLL.distribution.vmf_unif import unif_vMF
-import random
-import numpy as np
+from NVLL.util.util import GVar
+
+
 class BowVAE(torch.nn.Module):
     def __init__(self, args, vocab_size, n_hidden, n_lat, n_sample, dist):
         super(BowVAE, self).__init__()
@@ -28,7 +31,7 @@ class BowVAE(torch.nn.Module):
         elif self.dist_type == 'vmf':
             self.dist = vMF(n_hidden, n_lat, kappa=self.args.kappa)
         elif self.dist_type == 'unifvmf':
-            self.dist = unif_vMF(n_hidden, n_lat, kappa=self.args.kappa,norm_func=self.args.norm_func)
+            self.dist = unif_vMF(n_hidden, n_lat, kappa=self.args.kappa, norm_func=self.args.norm_func)
         else:
             raise NotImplementedError
 
@@ -47,9 +50,9 @@ class BowVAE(torch.nn.Module):
         # vecs: n_samples, batch_sz, lat_dim
 
         if 'redundant_norm' in tup:
-            aux_loss = torch.mean(tup['redundant_norm'])
+            aux_loss = tup['redundant_norm'].view(batch_sz)
         else:
-            aux_loss = GVar(torch.zeros(1))
+            aux_loss = GVar(torch.zeros(batch_sz))
 
         # stat
         avg_cos = BowVAE.check_dispersion(vecs)
@@ -57,13 +60,13 @@ class BowVAE(torch.nn.Module):
         tup['avg_cos'] = avg_cos
         tup['avg_norm'] = avg_norm
 
-        flatten_vecs = vecs.view(self.n_sample*batch_sz, self.n_lat)
+        flatten_vecs = vecs.view(self.n_sample * batch_sz, self.n_lat)
         logit = self.dropout(self.out(flatten_vecs))
         logit = torch.nn.functional.log_softmax(logit)
         logit = logit.view(self.n_sample, batch_sz, self.vocab_size)
         flatten_x = x.unsqueeze(0).expand(self.n_sample, batch_sz, self.vocab_size)
         error = torch.mul(flatten_x, logit)
-        error /= self.n_sample
+        error  =torch.mean(error,dim=0)
 
         # ys = 0
         #
@@ -78,10 +81,9 @@ class BowVAE(torch.nn.Module):
 
         return recon_loss, kld, aux_loss, tup, vecs
 
-
     @staticmethod
-    def cos( a, b):
-        return  torch.dot(a, b)/ (torch.norm(a)* torch.norm(b))
+    def cos(a, b):
+        return torch.dot(a, b) / (torch.norm(a) * torch.norm(b))
 
     @staticmethod
     def check_dispersion(vecs):
@@ -95,5 +97,5 @@ class BowVAE(torch.nn.Module):
                 if idx1 != idx2:
                     break
             cos_sim += BowVAE.cos(vecs[0][idx1], vecs[0][idx2])
-        return repr(cos_sim / num_sam)
+        return cos_sim / num_sam
         # print("Avg cosine sim of mus across batch: " + repr(cos_sim / num_sam))

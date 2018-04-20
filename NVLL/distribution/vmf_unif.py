@@ -13,7 +13,8 @@ class unif_vMF(torch.nn.Module):
         self.kappa = kappa
         # self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
-        self.func_norm = torch.nn.Linear(hid_dim, 1)
+        if norm_func:
+            self.func_norm = torch.nn.Linear(hid_dim, 1)
 
         self.noise_scaler = kappa
         self.norm_eps = 1
@@ -43,7 +44,7 @@ class unif_vMF(torch.nn.Module):
             # Use additional function to compute z_norm
             mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
             ret_dict['mu'] = mu
-            norm = self.func_norm(latent_code)
+            norm = self.func_norm(latent_code)      # TODO guarantee norm>0?
             clipped_norm = self.norm_clip(norm)
             redundant_norm = torch.max(norm - clipped_norm, torch.zeros_like(norm))
             ret_dict['norm'] = clipped_norm.expand_as(mu)
