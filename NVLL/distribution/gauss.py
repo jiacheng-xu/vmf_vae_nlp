@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 
+import numpy as np
 
 class Gauss(nn.Module):
     # __slots__ = ['lat_dim', 'logvar', 'mean']
@@ -26,6 +27,9 @@ class Gauss(nn.Module):
         kld = -0.5 * torch.sum(1 - torch.mul(mean, mean) +
                                2 * logvar - torch.exp(2 * logvar), dim=1)
         return kld
+
+    def get_aux_loss_term(self, tup):
+        return torch.from_numpy(np.zeros([1]))
 
     def sample_cell(self, batch_size):
         eps = torch.autograd.Variable(torch.normal(torch.zeros((batch_size, self.lat_dim))))

@@ -27,12 +27,23 @@ class unif_vMF(torch.nn.Module):
         # kappa = self.func_kappa(latent_code)
         kappa = self.kappa
         mu = self.func_mu(latent_code)
-        # print("Mu norms pre-norming: (avg=" + repr(torch.mean(torch.norm(mu, p=2, dim=1, keepdim=True)).data[0]) + ")")
-        mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
-        return {'mu': mu, 'kappa': kappa}
+        mu_norm = torch.norm(mu, p=2, dim=1, keepdim=True)
+        # print("Mu norms pre-norming: (avg=" + repr(torch.mean(mu_norm).data[0]) + ")")
+        mu = mu / mu_norm  # TODO
+        return {'mu': mu, 'mu_norm': mu_norm, 'kappa': kappa}
 
     def compute_KLD(self, tup, batch_sz):
         return self.kld.expand(batch_sz)
+
+    def get_aux_loss_term(self, tup):
+        mu_norm = tup["mu_norm"]
+        mu_norm_sq_diff_from_one = torch.pow(torch.add(mu_norm, -1), 2)
+        mu_loss = torch.sum(mu_norm_sq_diff_from_one)
+        # print("=============")
+        # print(repr(mu_norm))
+        # print(repr(mu_norm_sq_diff_from_one))
+        # print(repr(mu_loss))
+        return mu_loss
 
     @staticmethod
     def _vmf_kld(k, d):

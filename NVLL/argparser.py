@@ -27,6 +27,8 @@ def parse_arg():
 
     parser.add_argument('--kl_weight', type=float, default=1,
                         help='default scaling item for KL')
+    parser.add_argument('--aux_weight', type=float, default=0,
+                        help='default scaling item for auxiliary objective term(s). Off by default. 0.001 or less is good for the mu term')
 
     parser.add_argument('--batch_size', type=int, default=20, metavar='N', help='batch size')
     parser.add_argument('--eval_batch_size', type=int, default=3, help='evaluation batch size')

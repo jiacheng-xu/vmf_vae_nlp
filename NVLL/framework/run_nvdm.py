@@ -91,12 +91,12 @@ class Runner():
         print('=' * 89)
 
     @staticmethod
-    def log_instant(writer, args, glob_iter, epoch, epoch_start_time, recon_loss, kl_loss, val_loss):
+    def log_instant(writer, args, glob_iter, epoch, epoch_start_time, recon_loss, kl_loss, aux_loss, val_loss):
         try:
             print(
-            '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Total Loss {:5.2f} | '
+            '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux loss: {:5.2f} | Total Loss {:5.2f} | '
             'PPL {:8.2f}'.format(epoch, (time.time() - epoch_start_time), args.kl_weight,
-                                 recon_loss, kl_loss, val_loss, math.exp(val_loss)))
+                                 recon_loss, kl_loss, aux_loss, val_loss, math.exp(val_loss)))
             if writer is not None:
                 writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
                                      'val_loss': val_loss,
@@ -113,6 +113,7 @@ class Runner():
 
         acc_loss = 0
         acc_kl_loss = 0
+        acc_aux_loss = 0
         acc_real_loss = 0
 
         word_cnt = 0
@@ -129,13 +130,13 @@ class Runner():
 
             data_batch = GVar(torch.FloatTensor(data_batch))
 
-            recon_loss, kld, _, tup, vecs = model(data_batch)
+            recon_loss, kld, aux_loss, _, tup, vecs = model(data_batch)
 
             # if idx % (args.log_interval) == 0:
             #     print("RecLoss: %f\tKL: %f" % (torch.mean(recon_loss).data, torch.mean(kld).data))
 
 
-            total_loss = torch.mean(recon_loss + kld * args.kl_weight)
+            total_loss = torch.mean(recon_loss + kld * args.kl_weight + aux_loss * args.aux_weight)
             total_loss.backward()
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
@@ -152,6 +153,7 @@ class Runner():
             acc_loss += torch.sum(recon_loss).data  #
             # print(kld.size(), mask.size())
             acc_kl_loss += torch.sum(kld.data)
+            acc_aux_loss += torch.sum(aux_loss.data)
 
             count_batch = count_batch + 1e-12
             word_cnt += torch.sum(count_batch)
@@ -160,10 +162,11 @@ class Runner():
             if idx % args.log_interval == 0 and idx > 0:
                 cur_loss = acc_loss[0] / word_cnt  # word loss
                 cur_kl = acc_kl_loss / word_cnt
+                cur_aux_loss = acc_aux_loss / word_cnt
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
                 Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_loss
-                                   , cur_kl,
+                                   , cur_kl, cur_aux_loss,
                                    cur_real_loss)
 
         return glob_iter
@@ -187,7 +190,7 @@ class Runner():
 
             data_batch = GVar(torch.FloatTensor(data_batch))
 
-            recon_loss, kld, _, tup, vecs = model(data_batch)
+            recon_loss, kld, mu_loss, _, tup, vecs = model(data_batch)
             self.estimate_dispersion(tup["mu"])
             count_batch = maybe_cuda(torch.FloatTensor(count_batch))
             real_loss = torch.div((recon_loss + kld).data, count_batch)
@@ -199,7 +202,8 @@ class Runner():
             # acc_real_ppl += torch.sum(real_ppl)
 
             acc_loss += torch.sum(recon_loss).data  #
-            print("Batch KLD: " + repr(torch.sum(kld.data)))
+            # print("Batch acc loss: " + repr(acc_loss[0]))
+            # print("Batch KLD: " + repr(torch.sum(kld.data)))
             acc_kl_loss += torch.sum(kld.data)
             count_batch = count_batch + 1e-12
 

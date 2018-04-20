@@ -4,6 +4,8 @@ from NVLL.distribution.gauss import Gauss
 from NVLL.distribution.stable_vmf import vMF
 from NVLL.distribution.unifvmf import unif_vMF
 
+import numpy as np
+
 class BowVAE(torch.nn.Module):
     def __init__(self, args, vocab_size, n_hidden, n_lat, n_sample, dist):
         super(BowVAE, self).__init__()
@@ -57,6 +59,8 @@ class BowVAE(torch.nn.Module):
 
         recon_loss = -torch.sum(y, dim=1, keepdim=False)
 
-        total_loss = kld + recon_loss
+        aux_loss = self.dist.get_aux_loss_term(tup)
 
-        return recon_loss, kld, total_loss, tup, vecs
+        total_loss = kld + recon_loss + aux_loss
+
+        return recon_loss, kld, aux_loss, total_loss, tup, vecs
