@@ -6,29 +6,61 @@ from NVLL.util.util import GVar
 
 
 class unif_vMF(torch.nn.Module):
-    def __init__(self, hid_dim, lat_dim, kappa=1):
+    def __init__(self, hid_dim, lat_dim, kappa=1,norm_func=False):
         super().__init__()
         self.hid_dim = hid_dim
         self.lat_dim = lat_dim
         self.kappa = kappa
         # self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
+        self.func_norm = torch.nn.Linear(hid_dim, 1)
 
         self.noise_scaler = kappa
         self.norm_eps = 1
         self.norm_max = 10
-        self.normclip = torch.nn.Hardtanh(0, self.norm_max - 1)
+        self.norm_clip = torch.nn.Hardtanh(0, self.norm_max - self.norm_eps)
+
+        self.norm_func = norm_func
+
 
         # KLD accounts for both VMF and uniform parts
-        kld_value = unif_vMF._vmf_kld(kappa, lat_dim) + self._uniform_kld(0., self.norm_eps, 0., self.norm_max)
+        kld_value = unif_vMF._vmf_kld(kappa, lat_dim) \
+                    + unif_vMF._uniform_kld(0., self.norm_eps, 0., self.norm_max)
         self.kld = GVar(torch.from_numpy(np.array([kld_value])).float())
+        print('KLD: {}'.format(self.kld))
 
     def estimate_param(self, latent_code):
-        # kappa = self.func_kappa(latent_code)
-        kappa = self.kappa
-        mu = self.func_mu(latent_code)
-        # mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)  # TODO
-        return {'mu': mu, 'kappa': kappa}
+        """
+        Compute z_dir and z_norm for vMF.
+        norm_func means using another NN to compute the norm (batchsz, 1)
+        :param latent_code: batchsz, hidden size
+        :return: dict with kappa, mu(batchsz, lat_dim), norm (duplicate in row) (batchsz, lat_dim), (opt)redundant_norm
+        """
+        ret_dict = {}
+        ret_dict['kappa'] = self.kappa
+        if self.norm_func:
+            mu = self.func_mu(latent_code)
+            # Use additional function to compute z_norm
+            mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
+            ret_dict['mu'] = mu
+            norm = self.func_norm(latent_code)
+            clipped_norm = self.norm_clip(norm)
+            redundant_norm = torch.max(norm - clipped_norm, torch.zeros_like(norm))
+            ret_dict['norm'] = clipped_norm.expand_as(mu)
+            ret_dict['redundant_norm'] = redundant_norm
+        else:
+            # Only compute mu
+            mu = self.func_mu(latent_code)
+
+            norm = torch.norm(mu, 2, 1, keepdim=True)
+            clipped_norm = self.norm_clip(norm)
+            redundant_norm = torch.max(norm - clipped_norm, torch.zeros_like(norm))
+            ret_dict['norm'] = clipped_norm.expand_as(mu)
+            ret_dict['redundant_norm'] = redundant_norm
+
+            mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
+            ret_dict['mu'] = mu
+        return ret_dict
 
     def compute_KLD(self, tup, batch_sz):
         return self.kld.expand(batch_sz)
@@ -51,18 +83,27 @@ class unif_vMF(torch.nn.Module):
         batch_sz = lat_code.size()[0]
         tup = self.estimate_param(latent_code=lat_code)
         mu = tup['mu']
+        norm = tup['norm']
         kappa = tup['kappa']
 
         kld = self.compute_KLD(tup, batch_sz)
         vecs = []
         if n_sample == 1:
-            return tup, kld, self.sample_cell(mu, kappa)
+            return tup, kld, self.sample_cell(mu,norm, kappa)
         for n in range(n_sample):
-            sample = self.sample_cell(mu, kappa)
+            sample = self.sample_cell(mu,norm, kappa)
             vecs.append(sample)
+        vecs = torch.cat(vecs, dim=0)
         return tup, kld, vecs
 
-    def sample_cell(self, mu, kappa):
+    def sample_cell(self, mu,norm, kappa):
+        """
+
+        :param mu: z_dir (batchsz, lat_dim) . ALREADY normed.
+        :param norm: z_norm (batchsz, lat_dim).
+        :param kappa: scalar
+        :return:
+        """
         """vMF sampler in pytorch.
         http://stats.stackexchange.com/questions/156729/sampling-from-von-mises-fisher-distribution-in-python
         Args:
@@ -70,23 +111,27 @@ class unif_vMF(torch.nn.Module):
             kappa (Float): controls dispersion. kappa of zero is no dispersion.
         """
         batch_size, id_dim = mu.size()
+
+        # print(torch.norm(mu, 2, 1)) == 1
+
         result_list = []
         for i in range(batch_size):
-            munorm = mu[i].norm().expand(id_dim)
-            munoise = self.add_norm_noise(munorm, self.norm_eps)
+
+            norm_with_noise = self.add_norm_noise(norm[i], self.norm_eps)
+
             if float(mu[i].norm().data.cpu().numpy()) > 1e-10:
                 # sample offset from center (on sphere) with spread kappa
                 w = self._sample_weight(kappa, id_dim)
                 wtorch = GVar(w * torch.ones(id_dim))
 
                 # sample a point v on the unit sphere that's orthogonal to mu
-                v = self._sample_orthonormal_to(mu[i] / munorm, id_dim)
+                v = self._sample_orthonormal_to(mu[i], id_dim)
 
                 # compute new point
                 scale_factr = torch.sqrt(GVar(torch.ones(id_dim)) - torch.pow(wtorch, 2))
                 orth_term = v * scale_factr
-                muscale = mu[i] * wtorch / munorm
-                sampled_vec = (orth_term + muscale) * munoise
+                muscale = mu[i] * wtorch
+                sampled_vec = (orth_term + muscale) * norm_with_noise
             else:
                 rand_draw = GVar(torch.randn(id_dim))
                 rand_draw = rand_draw / torch.norm(rand_draw, p=2).expand(id_dim)
@@ -94,7 +139,7 @@ class unif_vMF(torch.nn.Module):
                 sampled_vec = rand_draw * GVar(rand_norms)  # mu[i]
             result_list.append(sampled_vec)
 
-        return torch.stack(result_list, 0)
+        return torch.stack(result_list, 0).unsqueeze(0)
 
     def _sample_weight(self, kappa, dim):
         """Rejection sampling scheme for sampling distance from center on
@@ -131,4 +176,4 @@ class unif_vMF(torch.nn.Module):
         # if np.random.rand()<0.05:
         #     print(munorm[0])
         trand = torch.rand(1).expand(munorm.size()) * eps
-        return (self.normclip(munorm) + GVar(trand))
+        return munorm + GVar(trand)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy
 from NVLL.distribution.gauss import Gauss
-from NVLL.distribution.stable_vmf import vMF
+from NVLL.distribution.vmf_only import vMF
 from NVLL.util.util import GVar
 
 

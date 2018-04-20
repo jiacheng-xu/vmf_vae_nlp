@@ -1,8 +1,8 @@
 import torch
 from NVLL.util.util import GVar
 from NVLL.distribution.gauss import Gauss
-from NVLL.distribution.stable_vmf import vMF
-from NVLL.distribution.unifvmf import unif_vMF
+from NVLL.distribution.vmf_only import vMF
+from NVLL.distribution.vmf_unif import unif_vMF
 
 class BowVAE(torch.nn.Module):
     def __init__(self, args, vocab_size, n_hidden, n_lat, n_sample, dist):
@@ -27,7 +27,7 @@ class BowVAE(torch.nn.Module):
         elif self.dist_type == 'vmf':
             self.dist = vMF(n_hidden, n_lat, kappa=self.args.kappa)
         elif self.dist_type == 'unifvmf':
-            self.dist = unif_vMF(n_hidden, n_lat, kappa=self.args.kappa)
+            self.dist = unif_vMF(n_hidden, n_lat, kappa=self.args.kappa,norm_func=self.args.norm_func)
         else:
             raise NotImplementedError
 
@@ -43,20 +43,33 @@ class BowVAE(torch.nn.Module):
         linear_x_2 = self.enc_vec_2(active_x)
 
         tup, kld, vecs = self.dist.build_bow_rep(linear_x_2, self.n_sample)
+        # vecs: n_samples, batch_sz, lat_dim
 
-        ys = 0
-        for i, v in enumerate(vecs):
-            logit = self.dropout(self.out(v))
-            logit = torch.nn.functional.log_softmax(logit)
-            ys += torch.mul(x, logit)
-        # out = self.out(vec)
-        # logits = torch.nn.functional.log_softmax(out)
-        # y = torch.mul(x, logits)
+        if 'redundant_norm' in tup:
+            aux_loss = torch.mean(tup['redundant_norm'])
+        else:
+            aux_loss = GVar(torch.zeros(1))
 
-        y = ys / self.n_sample
+        # stat
 
-        recon_loss = -torch.sum(y, dim=1, keepdim=False)
 
-        total_loss = kld + recon_loss
+        flatten_vecs = vecs.view(self.n_sample*batch_sz, self.n_lat)
+        logit = self.dropout(self.out(flatten_vecs))
+        logit = torch.nn.functional.log_softmax(logit)
+        logit = logit.view(self.n_sample, batch_sz, self.vocab_size)
+        flatten_x = x.unsqueeze(0).view(self.n_sample, batch_sz, self.vocab_size)
+        error = torch.mul(flatten_x, logit)
+        error /= self.n_sample
 
-        return recon_loss, kld, total_loss, tup, vecs
+        # ys = 0
+        #
+        # for i, v in enumerate(vecs):
+        #     logit = self.dropout(self.out(v))
+        #     logit = torch.nn.functional.log_softmax(logit)
+        #     ys += torch.mul(x, logit)
+        #
+        # y = ys / self.n_sample
+
+        recon_loss = -torch.sum(error, dim=1, keepdim=False)
+
+        return recon_loss, kld, aux_loss, tup, vecs

@@ -48,8 +48,8 @@ def parse_arg():
     parser.add_argument('--log_interval', type=int, default=100)
     parser.add_argument('--optim', type=str, default='adam', help='sgd or adam')
 
-    parser.add_argument('--klw_bound', type=float, default=1., help='Upper bound for weight for kl term.')
-    parser.add_argument('--mean_reg', type=float, default=0.001)
+    parser.add_argument('--norm_func', action='store_true',
+                        help='For Unif+vMF, choose whether to use additional function to compute z_norm')
 
     args = parser.parse_args()
     return args

@@ -8,9 +8,9 @@ import time
 import torch
 
 from NVLL.data.ng import DataNg
-from NVLL.data.lm import DataLM
-from NVLL.util.util import schedule, GVar, maybe_cuda
 from NVLL.model.nvdm import BowVAE
+# from NVLL.util.util import schedule, GVar, maybe_cuda
+from NVLL.util.util import schedule, GVar
 
 class Runner():
     def __init__(self, args, model, data, writer):
@@ -25,6 +25,7 @@ class Runner():
             self.optim = torch.optim.Adam(model.parameters(), lr=self.args.lr)
         else:
             raise NotImplementedError
+
     def start(self):
         print("Model {}".format(self.model))
         logging.info("Model {}".format(self.model))
@@ -46,6 +47,7 @@ class Runner():
                                                            self.data.dev[0], self.data.dev[1], self.data.dev_batches)
                 Runner.log_eval(cur_loss, cur_kl, val_loss, False)
 
+                val_loss = val_loss.data[0]
                 if not best_val_loss or val_loss < best_val_loss:
                     with open(self.args.save_name + ".model", 'wb') as f:
                         torch.save(self.model.state_dict(), f)
@@ -76,6 +78,9 @@ class Runner():
 
     @staticmethod
     def log_eval(recon_loss, kl_loss, loss, is_test=False):
+        recon_loss = recon_loss.data[0]
+        kl_loss  = kl_loss.data[0]
+        loss = loss.data[0]
         # print('=' * 89)
         if is_test:
             print(
@@ -90,18 +95,18 @@ class Runner():
     def log_instant(writer, args, glob_iter, epoch, epoch_start_time, recon_loss, kl_loss, val_loss):
         try:
             print(
-            '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Total Loss {:5.2f} | '
-            'PPL {:8.2f}'.format(epoch, (time.time() - epoch_start_time), args.kl_weight,
-                                 recon_loss, kl_loss, val_loss, math.exp(val_loss)))
+                '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Total Loss {:5.2f} | '
+                'PPL {:8.2f}'.format(epoch, (time.time() - epoch_start_time), args.kl_weight,
+                                     recon_loss, kl_loss, val_loss, math.exp(val_loss)))
             if writer is not None:
                 writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
-                                     'val_loss': val_loss,
-                                     'ppl': math.exp(val_loss)
-                                     }, global_step=glob_iter)
+                                             'val_loss': val_loss,
+                                             'ppl': math.exp(val_loss)
+                                             }, global_step=glob_iter)
         except OverflowError:
             print('Overflow')
-        # with open('Valid_PPL_' + log_name, 'w') as f:
-        #     f.write("{}\t{}".format(epoch, math.exp(val_loss)))
+            # with open('Valid_PPL_' + log_name, 'w') as f:
+            #     f.write("{}\t{}".format(epoch, math.exp(val_loss)))
 
     def train_epo(self, args, model, train_batches, epo, epo_start_time, glob_iter):
         model.train()
@@ -109,7 +114,7 @@ class Runner():
 
         acc_loss = 0
         acc_kl_loss = 0
-        acc_real_loss = 0
+        # acc_real_loss = 0
 
         word_cnt = 0
         doc_cnt = 0
@@ -125,10 +130,7 @@ class Runner():
 
             data_batch = GVar(torch.FloatTensor(data_batch))
 
-            recon_loss, kld, _, tup, vecs = model(data_batch)
-
-            # if idx % (args.log_interval) == 0:
-            #     print("RecLoss: %f\tKL: %f" % (torch.mean(recon_loss).data, torch.mean(kld).data))
+            recon_loss, kld, aux_loss, tup, vecs = model(data_batch)
 
 
             total_loss = torch.mean(recon_loss + kld * args.kl_weight)
@@ -139,11 +141,11 @@ class Runner():
 
             self.optim.step()
 
-            count_batch = maybe_cuda(torch.FloatTensor(count_batch))
+            count_batch = GVar(torch.FloatTensor(count_batch))
             doc_num = len(count_batch)
 
-            real_loss = torch.div((recon_loss + kld).data, count_batch)
-            acc_real_loss += torch.sum(real_loss)
+            # real_loss = torch.div((recon_loss + kld).data, count_batch)
+            # acc_real_loss += torch.sum(real_loss)
 
             acc_loss += torch.sum(recon_loss).data  #
             # print(kld.size(), mask.size())
@@ -157,9 +159,9 @@ class Runner():
                 cur_loss = acc_loss[0] / word_cnt  # word loss
                 cur_kl = acc_kl_loss / word_cnt
                 # cur_real_loss = acc_real_loss / doc_cnt
-                cur_real_loss = cur_loss + cur_kl
-                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_loss
-                                   , cur_kl,
+                cur_real_loss = (cur_loss + cur_kl).data[0]
+                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_loss.data[0]
+                                   , cur_kl.data[0],
                                    cur_real_loss)
 
         return glob_iter
@@ -184,24 +186,24 @@ class Runner():
             data_batch = GVar(torch.FloatTensor(data_batch))
 
             recon_loss, kld, _, tup, vecs = model(data_batch)
-            count_batch = maybe_cuda(torch.FloatTensor(count_batch))
-            real_loss = torch.div((recon_loss + kld).data, count_batch)
+            count_batch = GVar(torch.FloatTensor(count_batch))
+            # real_loss = torch.div((recon_loss + kld).data, count_batch)
             doc_num = len(count_batch)
             # remove nan
-            for n in real_loss:
-                if n == n:
-                    acc_real_loss += n
+            # for n in real_loss:
+            #     if n == n:
+            #         acc_real_loss += n
             # acc_real_ppl += torch.sum(real_ppl)
 
-            acc_loss += torch.sum(recon_loss).data  #
-            acc_kl_loss += torch.sum(kld.data)
+            acc_loss += torch.sum(recon_loss).data[0]  #
+            acc_kl_loss += torch.sum(kld).data[0]
             count_batch = count_batch + 1e-12
 
             word_cnt += torch.sum(count_batch)
             doc_cnt += doc_num
 
         # word ppl
-        cur_loss = acc_loss[0] / word_cnt  # word loss
+        cur_loss = acc_loss / word_cnt  # word loss
         cur_kl = acc_kl_loss / word_cnt
         # cur_real_loss = acc_real_loss / doc_cnt
         cur_real_loss = cur_loss + cur_kl
