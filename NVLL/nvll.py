@@ -17,12 +17,12 @@ def set_seed(args):
 
 
 def set_save_name_log(args):
-    args.save_name = 'Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}'.format(
+    args.save_name = '/backup2/jcxu/exp-nvdm/Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}'.format(
         args.data_name, str(args.dist), args.model,
         args.emsize,
         args.nhid, args.lat_dim, args.lr,
-        args.dropout, args.kappa)
-    writer = SummaryWriter(log_dir='exps/' + args.save_name)
+        args.dropout, args.kappa,args.aux_weight,str(args.norm_func))
+    writer = SummaryWriter(log_dir=args.save_name)
     log_name = args.save_name + '.log'
     logging.basicConfig(filename=log_name, level=logging.INFO)
     return args, writer

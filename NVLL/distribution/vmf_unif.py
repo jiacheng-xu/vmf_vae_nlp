@@ -18,7 +18,7 @@ class unif_vMF(torch.nn.Module):
 
         self.noise_scaler = kappa
         self.norm_eps = 1
-        self.norm_max = 10
+        self.norm_max = 2
         self.norm_clip = torch.nn.Hardtanh(0, self.norm_max - self.norm_eps)
 
         self.norm_func = norm_func
@@ -44,6 +44,7 @@ class unif_vMF(torch.nn.Module):
             # Use additional function to compute z_norm
             mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
             ret_dict['mu'] = mu
+
             norm = self.func_norm(latent_code)      # TODO guarantee norm>0?
             clipped_norm = self.norm_clip(norm)
             redundant_norm = torch.max(norm - clipped_norm, torch.zeros_like(norm))
@@ -54,9 +55,12 @@ class unif_vMF(torch.nn.Module):
             mu = self.func_mu(latent_code)
 
             norm = torch.norm(mu, 2, 1, keepdim=True)
-            clipped_norm = self.norm_clip(norm)
-            redundant_norm = torch.max(norm - clipped_norm, torch.zeros_like(norm))
-            ret_dict['norm'] = clipped_norm.expand_as(mu)
+            standard_norm = torch.ones_like(norm)
+
+
+
+            redundant_norm = torch.pow(standard_norm - norm,2)
+            ret_dict['norm'] = standard_norm.expand_as(mu)
             ret_dict['redundant_norm'] = redundant_norm
 
             mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)

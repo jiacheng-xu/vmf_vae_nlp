@@ -31,7 +31,7 @@ class Runner():
         logging.info("Model {}".format(self.model))
         best_val_loss = None
         glob_iter = 0
-
+        dead_cnt = 0
         try:
             for epoch in range(1, self.args.epochs + 1):
                 self.args.kl_weight = schedule(epoch)
@@ -45,7 +45,7 @@ class Runner():
 
                 cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
                                                            self.data.dev[0], self.data.dev[1], self.data.dev_batches)
-                Runner.log_eval(cur_loss, cur_kl, val_loss, False)
+                Runner.log_eval(self.writer, glob_iter, cur_loss, cur_kl, val_loss, False)
 
                 val_loss = val_loss.data[0]
                 if not best_val_loss or val_loss < best_val_loss:
@@ -54,7 +54,11 @@ class Runner():
                     with open(self.args.save_name + ".args", 'wb') as f:
                         torch.save(self.args, f)
                     best_val_loss = val_loss
-
+                    dead_cnt = 0
+                else:
+                    dead_cnt += 1
+                if dead_cnt == 5:
+                    raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
@@ -74,11 +78,11 @@ class Runner():
         model = model.eval()
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test[0], self.data.test[1], self.data.test_batches)
-        Runner.log_eval(cur_loss, cur_kl, test_loss, True)
+        Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
         self.writer.close()
 
     @staticmethod
-    def log_eval(recon_loss, kl_loss, loss, is_test=False):
+    def log_eval(writer, glob_iter, recon_loss, kl_loss, loss, is_test=False):
         recon_loss = recon_loss.data[0]
         kl_loss  = kl_loss.data[0]
         loss = loss.data[0]
@@ -87,9 +91,17 @@ class Runner():
             print(
                 '| End of training | Recon Loss {:5.2f} | KL Loss {:5.2f} | Test Loss {:5.2f} | Test PPL {:8.2f} |'.format(
                     recon_loss, kl_loss, loss, math.exp(loss)))
+            writer.add_scalars('test', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
+                                             'val_loss': loss,
+                                             'ppl': math.exp(loss)
+                                             })
         else:
             print('| EVAL | Recon Loss {:5.2f} | KL Loss {:5.2f} | Eval Loss {:5.2f} | Eval PPL {:8.2f} |'.format(
                 recon_loss, kl_loss, loss, math.exp(loss)))
+            writer.add_scalars('eval', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
+                                        'val_loss': loss,
+                                        'ppl': math.exp(loss)
+                                        },global_step=glob_iter)
         print('=' * 89)
 
     @staticmethod
@@ -102,14 +114,14 @@ class Runner():
                      epoch, (time.time() - epoch_start_time), args.kl_weight, cur_avg_cos, cur_avg_norm,
                                      recon_loss, kl_loss, aux_loss,val_loss, math.exp(val_loss)))
             if writer is not None:
-                writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
+                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight,'cur_avg_cos':cur_avg_cos,
+                                             'cur_avg_norm':cur_avg_norm,'recon_loss':recon_loss,'kl_loss':kl_loss,
+                                             'aux_loss':aux_loss,
                                              'val_loss': val_loss,
                                              'ppl': math.exp(val_loss)
                                              }, global_step=glob_iter)
         except OverflowError:
             print('Overflow')
-            # with open('Valid_PPL_' + log_name, 'w') as f:
-            #     f.write("{}\t{}".format(epoch, math.exp(val_loss)))
 
     def train_epo(self, args, model, train_batches, epo, epo_start_time, glob_iter):
         model.train()

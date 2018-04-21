@@ -66,7 +66,7 @@ class BowVAE(torch.nn.Module):
         logit = logit.view(self.n_sample, batch_sz, self.vocab_size)
         flatten_x = x.unsqueeze(0).expand(self.n_sample, batch_sz, self.vocab_size)
         error = torch.mul(flatten_x, logit)
-        error  =torch.mean(error,dim=0)
+        error  = torch.mean(error,dim=0)
 
         # ys = 0
         #

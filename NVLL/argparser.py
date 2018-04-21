@@ -50,7 +50,7 @@ def parse_arg():
     parser.add_argument('--log_interval', type=int, default=100)
     parser.add_argument('--optim', type=str, default='adam', help='sgd or adam')
 
-    parser.add_argument('--norm_func', action='store_true',
+    parser.add_argument('--norm_func', action='store_true',default=False,
                         help='For Unif+vMF, choose whether to use additional function to compute z_norm')
 
     args = parser.parse_args()

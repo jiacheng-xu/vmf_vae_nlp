@@ -6,7 +6,7 @@ from NVLL.util.util import GVar
 
 
 class vMF(torch.nn.Module):
-    def __init__(self, hid_dim, lat_dim, kappa=1, norm_func=False):
+    def __init__(self, hid_dim, lat_dim, kappa=1):
         super().__init__()
         self.hid_dim = hid_dim
         self.lat_dim = lat_dim
@@ -14,9 +14,8 @@ class vMF(torch.nn.Module):
         # self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
 
-        self.norm_func = norm_func
-
         self.kld = GVar(torch.from_numpy(vMF._vmf_kld(kappa, lat_dim)).float())
+        print('KLD: {}'.format(self.kld.data[0]))
 
     def estimate_param(self, latent_code):
         ret_dict = {}
@@ -28,9 +27,8 @@ class vMF(torch.nn.Module):
 
         norm = torch.norm(mu, 2, 1, keepdim=True)
         mu_norm_sq_diff_from_one = torch.pow(torch.add(norm, -1), 2)
-        redundant_norm = torch.sum(mu_norm_sq_diff_from_one)
-
-        ret_dict['norm'] = GVar(torch.ones_like(mu))
+        redundant_norm = torch.sum(mu_norm_sq_diff_from_one,dim=1, keepdim=True)
+        ret_dict['norm'] = torch.ones_like(mu)
         ret_dict['redundant_norm'] = redundant_norm
 
         mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
@@ -38,14 +36,16 @@ class vMF(torch.nn.Module):
 
         return ret_dict
 
-    def compute_KLD(self, tup):
-        return self.kld
+    def compute_KLD(self, tup,batch_sz):
+        return self.kld.expand(batch_sz)
 
     @staticmethod
     def _vmf_kld(k, d):
         tmp = (k * ((sp.iv(d / 2.0 + 1.0, k) + sp.iv(d / 2.0, k) * d / (2.0 * k)) / sp.iv(d / 2.0, k) - d / (2.0 * k)) \
                + d * np.log(k) / 2.0 - np.log(sp.iv(d / 2.0, k)) \
                - sp.loggamma(d / 2 + 1) - d * np.log(2) / 2).real
+        if tmp != tmp:
+            exit()
         return np.array([tmp])
 
     def build_bow_rep(self, lat_code, n_sample):
@@ -55,7 +55,7 @@ class vMF(torch.nn.Module):
         norm = tup['norm']
         kappa = tup['kappa']
 
-        kld = self.compute_KLD(tup)
+        kld = self.compute_KLD(tup, batch_sz)
         vecs = []
         if n_sample == 1:
             return tup, kld, self.sample_cell(mu, norm, kappa)

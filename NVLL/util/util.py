@@ -4,6 +4,7 @@ import torch
 
 
 def GVar(x):
+
     if torch.cuda.is_available():
         return torch.autograd.Variable(x).cuda()
     else:
@@ -16,7 +17,7 @@ def maybe_cuda(x):
         return x
 
 def schedule(epo):
-    return float(torch.sigmoid(torch.ones(1) * (epo / 3 - 5)))
+    return float(torch.sigmoid(torch.ones(1) * (epo / 2 - 5)))
 
 
 class Dictionary(object):
