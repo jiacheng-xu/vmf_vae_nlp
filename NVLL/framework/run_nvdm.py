@@ -73,8 +73,6 @@ class Runner():
         model = model.cuda()
         print(model)
         print(self.args)
-        # with open(self.args.save_name, 'rb') as f:
-        #     model = torch.load(f)
         model = model.eval()
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test[0], self.data.test[1], self.data.test_batches)
@@ -185,7 +183,8 @@ class Runner():
                 cur_avg_norm = acc_avg_norm[0] / cnt
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
-                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time,cur_avg_cos,cur_avg_norm, cur_loss
+                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time,
+                                   cur_avg_cos,cur_avg_norm, cur_loss
                                    , cur_kl,cur_aux_loss,
                                    cur_real_loss)
 

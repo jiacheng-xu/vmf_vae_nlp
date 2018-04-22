@@ -1,6 +1,35 @@
 from collections import OrderedDict
 from operator import itemgetter
 import torch
+import random
+
+def cos(a, b):
+    """
+    Compute cosine similarity between two vectors.
+    :param a: vec 1
+    :param b: vec 2
+    :return: cos(a,b)
+    """
+    return torch.dot(a, b) / (torch.norm(a) * torch.norm(b))
+
+def check_dispersion(vecs,num_sam = 10):
+    """
+    Check the dispersion of vecs.
+    :param vecs:  [n_samples, batch_sz, lat_dim]
+    :param num_sam: number of samples to check
+    :return:
+    """
+    # vecs: n_samples, batch_sz, lat_dim
+
+    cos_sim = 0
+    for i in range(num_sam):
+        idx1 = random.randint(0, vecs.size(1) - 1)
+        while True:
+            idx2 = random.randint(0, vecs.size(1) - 1)
+            if idx1 != idx2:
+                break
+        cos_sim += cos(vecs[0][idx1], vecs[0][idx2])
+    return cos_sim / num_sam
 
 
 def GVar(x):
@@ -48,3 +77,4 @@ class Dictionary(object):
             wt_string += i + '\n'
         with open(file_name, 'w') as f:
             f.write(wt_string)
+

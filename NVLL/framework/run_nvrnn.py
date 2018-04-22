@@ -2,11 +2,11 @@ import logging
 import math
 import random
 import time
-import numpy
+
 import torch
 
-from NVLL.util.util import schedule, GVar
 from NVLL.model.nvrnn import RNNVAE
+from NVLL.util.util import schedule, GVar
 
 
 class Runner():
@@ -30,7 +30,7 @@ class Runner():
         logging.info("Model {}".format(self.model))
         best_val_loss = None
         glob_iter = 0
-
+        dead_cnt = 0
         try:
             for epoch in range(1, self.args.epochs + 1):
                 self.args.kl_weight = schedule(epoch)
@@ -42,7 +42,7 @@ class Runner():
 
                 cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
                                                            self.data.dev)
-                Runner.log_eval(cur_loss, cur_kl, val_loss, False)
+                Runner.log_eval(self.writer, glob_iter, cur_loss, cur_kl, val_loss, False)
 
                 if not best_val_loss or val_loss < best_val_loss:
                     with open(self.args.save_name + ".model", 'wb') as f:
@@ -50,9 +50,12 @@ class Runner():
                     with open(self.args.save_name + ".args", 'wb') as f:
                         torch.save(self.args, f)
                     best_val_loss = val_loss
+                    dead_cnt = 0
                 else:
+                    dead_cnt += 1
                     self.args.cur_lr /= 1.2
-
+                if dead_cnt == 10:
+                    raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
@@ -62,45 +65,56 @@ class Runner():
         model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary), self.args.emsize,
                        self.args.nhid, self.args.lat_dim, self.args.nlayers,
                        dropout=self.args.dropout, tie_weights=self.args.tied)
-        model.load_state_dict(torch.load(self.args.save_name + '.model'))
+        model.load_state_dict(torch.load(self.args.save_name + '.model'), strict=False)
         model = model.cuda()
+        model = model.eval()
         print(model)
         print(self.args)
-        # with open(self.args.save_name, 'rb') as f:
-        #     model = torch.load(f)
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test)
-        Runner.log_eval(cur_loss, cur_kl, test_loss, True)
+        Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
         self.writer.close()
 
     @staticmethod
-    def log_eval(recon_loss, kl_loss, loss, is_test=False):
+    def log_eval(writer, glob_iter, recon_loss, kl_loss, loss, is_test=False):
         # print('=' * 89)
         if is_test:
             print(
                 '| End of training | Recon Loss {:5.2f} | KL Loss {:5.2f} | Test Loss {:5.2f} | Test PPL {:8.2f} |'.format(
                     recon_loss, kl_loss, loss, math.exp(loss)))
+            writer.add_scalars('test', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
+                                        'val_loss': loss,
+                                        'ppl': math.exp(loss)
+                                        })
         else:
             print('| EVAL | Recon Loss {:5.2f} | KL Loss {:5.2f} | Eval Loss {:5.2f} | Eval PPL {:8.2f} |'.format(
                 recon_loss, kl_loss, loss, math.exp(loss)))
+            writer.add_scalars('eval', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
+                                        'val_loss': loss,
+                                        'ppl': math.exp(loss)
+                                        }, global_step=glob_iter)
         print('=' * 89)
 
     @staticmethod
-    def log_instant(writer, args, glob_iter, epoch, epoch_start_time, recon_loss, kl_loss, val_loss):
+    def log_instant(writer, args, glob_iter, epoch, epoch_start_time,
+                    cur_avg_cos,cur_avg_norm, recon_loss
+                                   , kl_loss,aux_loss,
+                    val_loss):
         try:
             print(
-                '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Total Loss {:5.2f} | '
-                'PPL {:8.2f}'.format(epoch, (time.time() - epoch_start_time), args.kl_weight,
-                                     recon_loss, kl_loss, val_loss, math.exp(val_loss)))
+                 '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
+                 'loss: {:5.2f} | Total Loss {:5.2f} | PPL {:8.2f}'.format(
+                     epoch, (time.time() - epoch_start_time), args.kl_weight, cur_avg_cos, cur_avg_norm,
+                                     recon_loss, kl_loss, aux_loss,val_loss, math.exp(val_loss)))
             if writer is not None:
-                writer.add_scalars('valid', {'lr': args.lr, 'kl_weight': args.kl_weight,
-                                         'val_loss': val_loss,
-                                         'ppl': math.exp(val_loss)
-                                         }, global_step=glob_iter)
+                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight,'cur_avg_cos':cur_avg_cos,
+                                             'cur_avg_norm':cur_avg_norm,'recon_loss':recon_loss,'kl_loss':kl_loss,
+                                             'aux_loss':aux_loss,
+                                             'val_loss': val_loss,
+                                             'ppl': math.exp(val_loss)
+                                             }, global_step=glob_iter)
         except OverflowError:
             print('Overflow')
-            # with open('Valid_PPL_' + log_name, 'w') as f:
-            #     f.write("{}\t{}".format(epoch, math.exp(val_loss)))
 
     def train_epo(self, args, model, train_batches, epo, epo_start_time, glob_iter):
         model.train()
@@ -112,10 +126,14 @@ class Runner():
 
         acc_loss = 0
         acc_kl_loss = 0
-        acc_total_loss = 0
+        acc_aux_loss = 0
+        acc_avg_cos = 0
+        acc_avg_norm = 0
 
         batch_cnt = 0
         all_cnt = 0
+        cnt = 0
+
         random.shuffle(train_batches)
         for idx, batch in enumerate(train_batches):
             self.optim.zero_grad()
@@ -124,17 +142,11 @@ class Runner():
 
             glob_iter += 1
 
-            # model.zero_grad()
-
             target = GVar(batch)
 
-            tup, kld, decoded = model(feed, target)
+            recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 
-            flatten_decoded = decoded.view(-1, self.model.ntoken)
-            flatten_target = target.view(-1)
-            loss = self.criterion(flatten_decoded, flatten_target)  # batch_sz * seq, loss
-            sum_kld = torch.sum(kld)
-            total_loss = loss * seq_len * batch_sz + sum_kld * self.args.kl_weight
+            total_loss = recon_loss * seq_len + torch.mean(kld) * self.args.kl_weight + torch.mean(aux_loss) * args.aux_weight
 
             total_loss.backward()
 
@@ -143,19 +155,25 @@ class Runner():
 
             self.optim.step()
 
-            acc_total_loss += loss.data * seq_len * batch_sz + sum_kld.data
-            acc_loss += loss.data * seq_len * batch_sz
-            acc_kl_loss += sum_kld.data
 
-            batch_cnt += 1
+            acc_loss += recon_loss.data * seq_len * batch_sz
+            acc_kl_loss += torch.sum(kld).data
+            acc_aux_loss += torch.sum(aux_loss).data
+            acc_avg_cos += tup['avg_cos'].data
+            acc_avg_norm += tup['avg_norm'].data
+
+            cnt += 1
+            batch_cnt += batch_sz
             all_cnt += batch_sz * seq_len
             if idx % args.log_interval == 0 and idx > 0:
                 cur_loss = acc_loss[0] / all_cnt
                 cur_kl = acc_kl_loss[0] / all_cnt
-                # cur_real_loss = acc_real_loss / doc_cnt
-                cur_real_loss = acc_total_loss[0] / all_cnt
-                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_loss
-                                   , cur_kl,
+                cur_aux_loss = acc_aux_loss[0] / all_cnt
+                cur_avg_cos = acc_avg_cos[0] / cnt
+                cur_avg_norm = acc_avg_norm[0] / cnt
+                cur_real_loss = cur_loss + cur_kl
+                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_avg_cos,cur_avg_norm, cur_loss
+                                   , cur_kl,cur_aux_loss,
                                    cur_real_loss)
                 acc_loss, acc_total_loss, acc_kl_loss, all_cnt = 0, 0, 0, 0
 
@@ -169,33 +187,39 @@ class Runner():
 
         acc_loss = 0
         acc_kl_loss = 0
-        acc_total_loss = 0
+        acc_aux_loss = 0
+        acc_avg_cos = 0
+        acc_avg_norm = 0
+
+        batch_cnt = 0
         all_cnt = 0
+        cnt = 0
         start_time = time.time()
 
         for idx, batch in enumerate(dev_batches):
             feed = self.data.get_feed(batch)
             target = GVar(batch)
             seq_len, batch_sz = batch.size()
-            tup, kld, decoded = model(feed, target)
 
-            flatten_decoded = decoded.view(-1, self.model.ntoken)
-            flatten_target = target.view(-1)
-            loss = self.criterion(flatten_decoded, flatten_target)  # batch_sz * seq, loss
-            sum_kld = torch.sum(kld)
-            total_loss = loss + sum_kld * self.args.kl_weight
 
-            acc_total_loss += loss.data * seq_len * batch_sz + sum_kld.data
-            acc_loss += loss.data * seq_len * batch_sz
-            acc_kl_loss += sum_kld.data
+            recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
+
+            acc_loss += recon_loss.data * seq_len * batch_sz
+            acc_kl_loss += torch.sum(kld).data
+            acc_aux_loss += torch.sum(aux_loss).data
+            acc_avg_cos += tup['avg_cos'].data
+            acc_avg_norm += tup['avg_norm'].data
+
+            cnt += 1
+            batch_cnt += batch_sz
             all_cnt += batch_sz * seq_len
 
-        # word ppl
-        cur_loss = acc_loss[0] / all_cnt  # word loss
+        cur_loss = acc_loss[0] / all_cnt
         cur_kl = acc_kl_loss[0] / all_cnt
-        # cur_real_loss = acc_real_loss / doc_cnt
+        cur_aux_loss = acc_aux_loss[0] / all_cnt
+        cur_avg_cos = acc_avg_cos[0] / cnt
+        cur_avg_norm = acc_avg_norm[0] / cnt
         cur_real_loss = cur_loss + cur_kl
-        elapsed = time.time() - start_time
 
         # Runner.log_eval(print_ppl)
         # print('loss {:5.2f} | KL {:5.2f} | ppl {:8.2f}'.format(            cur_loss, cur_kl, math.exp(print_ppl)))

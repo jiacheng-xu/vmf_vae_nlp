@@ -4,13 +4,13 @@ import numpy
 from NVLL.distribution.gauss import Gauss
 from NVLL.distribution.vmf_only import vMF
 from NVLL.util.util import GVar
-
-
+from NVLL.distribution.vmf_unif import unif_vMF
+from NVLL.util.util import check_dispersion,cos
 class RNNVAE(nn.Module):
     """Container module with an optional encoder, a prob latent module, and a RNN decoder."""
 
-
-    def __init__(self, args, enc_type, ntoken, ninp, nhid, lat_dim, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(self, args, enc_type, ntoken, ninp, nhid,
+                 lat_dim, nlayers, dropout=0.5, tie_weights=False):
 
         super(RNNVAE, self).__init__()
         self.FLAG_train = True
@@ -33,7 +33,7 @@ class RNNVAE(nn.Module):
         self.decoder_out = nn.Linear(nhid, ntoken)
 
         # VAE recognition part
-        if self.dist_type == 'nor' or 'vmf' or 'sph':
+        if self.dist_type == 'nor' or 'vmf' or 'sph' or 'unifvmf':
             if enc_type == 'lstm':
                 self.enc_lstm = nn.LSTM(ninp, nhid, 1, bidirectional=True, dropout=dropout)
                 self.hid4_to_lat = nn.Linear(4 * nhid, nhid)
@@ -57,6 +57,10 @@ class RNNVAE(nn.Module):
             pass
         elif args.dist == 'zero':
             pass
+        elif args.dist == 'unifvmf':
+            self.dist = unif_vMF(nhid, lat_dim,
+                                 kappa=self.args.kappa,
+                                 norm_func=self.args.norm_func)
         else:
             raise NotImplementedError
 
@@ -72,6 +76,8 @@ class RNNVAE(nn.Module):
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder_out.weight = self.emb.weight
+
+        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
 
     def lstm_funct(self, x):
         batch_sz = x.size()[1]
@@ -98,16 +104,40 @@ class RNNVAE(nn.Module):
 
     def forward(self, inp, target):
         seq_len, batch_sz = inp.size()
-        tup, kld, decoded = self.run(inp, target)
-        return tup, kld, decoded
+        recon_loss, kld, aux_loss, tup, vecs = self.run(inp, target)
+        return recon_loss, kld, aux_loss, tup, vecs
 
     def forward_ground(self, inp, target):
+        """
+
+        :param inp:  seq_len, batch_sz
+        :param target: seq_len, batch_sz
+        :return:
+        """
+        seq_len, batch_sz = inp.size()
         emb = self.drop(self.emb(inp))
         h = self.forward_enc(emb)
-        tup, kld, z = self.forward_build_lat(h)  # batchsz, lat dim
-        decoded = self.forward_decode_ground(emb, z)  # (seq_len, batch, dict sz)
+        tup, kld, vecs = self.forward_build_lat(h)  # batchsz, lat dim
 
-        return tup, kld, decoded
+
+        if 'redundant_norm' in tup:
+            aux_loss = tup['redundant_norm'].view(batch_sz)
+        else:
+            aux_loss = GVar(torch.zeros(batch_sz))
+
+        # stat
+        avg_cos = check_dispersion(vecs)
+        avg_norm = torch.mean(tup['norm'])
+        tup['avg_cos'] = avg_cos
+        tup['avg_norm'] = avg_norm
+
+        vec = torch.mean(vecs,dim=0)
+        decoded = self.forward_decode_ground(emb, vec)  # (seq_len, batch, dict sz)
+
+        flatten_decoded = decoded.view(-1, self.ntoken)
+        flatten_target = target.view(-1)
+        loss = self.criterion(flatten_decoded, flatten_target)
+        return loss, kld, aux_loss, tup, vecs
 
     def forward_fly(self):
         pass
@@ -123,12 +153,19 @@ class RNNVAE(nn.Module):
         return h
 
     def forward_build_lat(self, hidden):
+        """
+
+        :param hidden:
+        :return: tup, kld [batch_sz], out [nsamples, batch_sz, lat_dim]
+        """
         # hidden: batch_sz, nhid
         if self.args.dist == 'nor':
             tup, kld, out = self.dist.build_bow_rep(hidden, 1)  # 2 for bidirect, 2 for h and
 
         elif self.args.dist == 'vmf':
-            tup, kld, out = self.dist.build_bow_rep(hidden, 1)
+            tup, kld, out = self.dist.build_bow_rep(hidden, 3)
+        elif self.args.dist == 'unifvmf':
+            tup, kld, out = self.dist.build_bow_rep(hidden, 3)
 
         elif self.args.dist == 'sph':
             norms = torch.norm(hidden, p=2, dim=1, keepdim=True)
