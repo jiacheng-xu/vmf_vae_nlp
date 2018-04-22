@@ -53,5 +53,7 @@ def parse_arg():
     parser.add_argument('--norm_func', action='store_true',default=False,
                         help='For Unif+vMF, choose whether to use additional function to compute z_norm')
 
+    parser.add_argument('--input_z',action='store_true')
+    parser.add_argument('--mix_unk', action='store_true')
     args = parser.parse_args()
     return args
