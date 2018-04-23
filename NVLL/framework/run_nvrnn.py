@@ -56,6 +56,10 @@ class Runner():
                     self.args.cur_lr /= 1.2
                 if dead_cnt == 10:
                     raise KeyboardInterrupt
+                if epoch == 1 and best_val_loss >= 600:
+                    raise KeyboardInterrupt
+                if epoch == 3 and best_val_loss >= 300:
+                    raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
@@ -64,7 +68,8 @@ class Runner():
         # Load the best saved model.
         model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary), self.args.emsize,
                        self.args.nhid, self.args.lat_dim, self.args.nlayers,
-                       dropout=self.args.dropout, tie_weights=self.args.tied)
+                       dropout=self.args.dropout, tie_weights=self.args.tied,
+                       input_z=self.args.input_z, mix_unk=self.args.mix_unk)
         model.load_state_dict(torch.load(self.args.save_name + '.model'), strict=False)
         model = model.cuda()
         model = model.eval()
@@ -175,7 +180,6 @@ class Runner():
                 Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_avg_cos,cur_avg_norm, cur_loss
                                    , cur_kl,cur_aux_loss,
                                    cur_real_loss)
-                acc_loss, acc_total_loss, acc_kl_loss, all_cnt = 0, 0, 0, 0
 
         return glob_iter
 

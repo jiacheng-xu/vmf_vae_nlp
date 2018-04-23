@@ -10,7 +10,7 @@ class RNNVAE(nn.Module):
     """Container module with an optional encoder, a prob latent module, and a RNN decoder."""
 
     def __init__(self, args, enc_type, ntoken, ninp, nhid,
-                 lat_dim, nlayers, dropout=0.5, tie_weights=False):
+                 lat_dim, nlayers, dropout=0.5, tie_weights=False, input_z=False, mix_unk=0):
 
         super(RNNVAE, self).__init__()
         self.FLAG_train = True
@@ -37,10 +37,9 @@ class RNNVAE(nn.Module):
             if enc_type == 'lstm':
                 self.enc_lstm = nn.LSTM(ninp, nhid, 1, bidirectional=True, dropout=dropout)
                 self.hid4_to_lat = nn.Linear(4 * nhid, nhid)
-
                 self.enc = self.lstm_funct
             elif enc_type == 'bow':
-                self.enc = nn.Linear(ninp, lat_dim)
+                self.enc = nn.Linear(ninp, nhid)
             else:
                 raise NotImplementedError
         elif self.dist_type == 'zero':
@@ -64,18 +63,22 @@ class RNNVAE(nn.Module):
         else:
             raise NotImplementedError
 
+        self.input_z = input_z
+        self.mix_unk = mix_unk
+
         # LSTM
         self.z_to_h = nn.Linear(lat_dim, nhid * nlayers)  # TODO
         self.z_to_c = nn.Linear(lat_dim, nhid * nlayers)
-        if args.fly:
-            self.decoder_rnn = nn.LSTMCell(ninp + nhid, nhid, nlayers)
-        else:
-            self.decoder_rnn = nn.LSTM(ninp + lat_dim, nhid, nlayers, dropout=dropout)
 
+        if input_z:
+            self.decoder_rnn = nn.LSTM(ninp + lat_dim, nhid, nlayers, dropout=dropout)
+        else:
+            self.decoder_rnn = nn.LSTM(ninp, nhid, nlayers, dropout=dropout)
         if tie_weights:
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder_out.weight = self.emb.weight
+
 
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
 
@@ -109,7 +112,7 @@ class RNNVAE(nn.Module):
 
     def forward_ground(self, inp, target):
         """
-
+        Forward with ground truth (maybe mixed with UNK) as input.
         :param inp:  seq_len, batch_sz
         :param target: seq_len, batch_sz
         :return:
@@ -186,9 +189,12 @@ class RNNVAE(nn.Module):
         seq_len, batch_sz, _ = emb.size()
 
         # Dropword
-        emb = self.dropword(emb)
-        lat_to_cat = lat_code.unsqueeze(0).expand(seq_len, batch_sz, -1)
-        emb = torch.cat([emb, lat_to_cat], dim=2)
+        if self.mix_unk > 0.001:
+            emb = self.dropword(emb,self.mix_unk)
+
+        if self.input_z:
+            lat_to_cat = lat_code.unsqueeze(0).expand(seq_len, batch_sz, -1)
+            emb = torch.cat([emb, lat_to_cat], dim=2)
 
         # convert z to init h and c
         # (num_layers * num_directions, batch, hidden_size)

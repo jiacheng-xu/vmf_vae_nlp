@@ -20,7 +20,8 @@ def check_dispersion(vecs,num_sam = 10):
     :return:
     """
     # vecs: n_samples, batch_sz, lat_dim
-
+    if vecs.size(1) <=2:
+        return  GVar(torch.zeros(1))
     cos_sim = 0
     for i in range(num_sam):
         idx1 = random.randint(0, vecs.size(1) - 1)
