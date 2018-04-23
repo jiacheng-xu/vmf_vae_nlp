@@ -1,5 +1,5 @@
 from NVLL.distribution.vmf_only import vMF
-x =[32,64,128,256,512]
+x =[3 , 8,16,32,64,128,256,512]
 import numpy as np
 import torch
 from scipy import special as sp

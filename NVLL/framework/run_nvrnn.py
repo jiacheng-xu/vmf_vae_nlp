@@ -54,11 +54,11 @@ class Runner():
                 else:
                     dead_cnt += 1
                     self.args.cur_lr /= 1.2
-                if dead_cnt == 5:
+                if dead_cnt == 10:
                     raise KeyboardInterrupt
-                if epoch == 1 and math.exp(best_val_loss) >= 350:
+                if epoch == 1 and math.exp(best_val_loss) >= 600:
                     raise KeyboardInterrupt
-                if epoch == 3 and math.exp(best_val_loss )>= 250:
+                if epoch == 8 and math.exp(best_val_loss) >= 180:
                     raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
@@ -102,19 +102,19 @@ class Runner():
 
     @staticmethod
     def log_instant(writer, args, glob_iter, epoch, epoch_start_time,
-                    cur_avg_cos,cur_avg_norm, recon_loss
-                                   , kl_loss,aux_loss,
+                    cur_avg_cos, cur_avg_norm, recon_loss
+                    , kl_loss, aux_loss,
                     val_loss):
         try:
             print(
-                 '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
-                 'loss: {:5.2f} | Total Loss {:5.2f} | PPL {:8.2f}'.format(
-                     epoch, (time.time() - epoch_start_time), args.kl_weight, cur_avg_cos, cur_avg_norm,
-                                     recon_loss, kl_loss, aux_loss,val_loss, math.exp(val_loss)))
+                '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
+                'loss: {:5.2f} | Total Loss {:5.2f} | PPL {:8.2f}'.format(
+                    epoch, (time.time() - epoch_start_time), args.kl_weight, cur_avg_cos, cur_avg_norm,
+                    recon_loss, kl_loss, aux_loss, val_loss, math.exp(val_loss)))
             if writer is not None:
-                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight,'cur_avg_cos':cur_avg_cos,
-                                             'cur_avg_norm':cur_avg_norm,'recon_loss':recon_loss,'kl_loss':kl_loss,
-                                             'aux_loss':aux_loss,
+                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight, 'cur_avg_cos': cur_avg_cos,
+                                             'cur_avg_norm': cur_avg_norm, 'recon_loss': recon_loss, 'kl_loss': kl_loss,
+                                             'aux_loss': aux_loss,
                                              'val_loss': val_loss,
                                              'ppl': math.exp(val_loss)
                                              }, global_step=glob_iter)
@@ -151,7 +151,8 @@ class Runner():
 
             recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 
-            total_loss = recon_loss * seq_len + torch.mean(kld) * self.args.kl_weight + torch.mean(aux_loss) * args.aux_weight
+            total_loss = recon_loss * seq_len + torch.mean(kld) * self.args.kl_weight + torch.mean(
+                aux_loss) * args.aux_weight
 
             total_loss.backward()
 
@@ -159,7 +160,6 @@ class Runner():
             torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
 
             self.optim.step()
-
 
             acc_loss += recon_loss.data * seq_len * batch_sz
             acc_kl_loss += torch.sum(kld).data
@@ -173,12 +173,17 @@ class Runner():
             if idx % args.log_interval == 0 and idx > 0:
                 cur_loss = acc_loss[0] / all_cnt
                 cur_kl = acc_kl_loss[0] / all_cnt
+                if cur_kl < 0.03:
+                    raise KeyboardInterrupt
+                if cur_kl > 0.7:
+                    raise KeyboardInterrupt
                 cur_aux_loss = acc_aux_loss[0] / all_cnt
                 cur_avg_cos = acc_avg_cos[0] / cnt
                 cur_avg_norm = acc_avg_norm[0] / cnt
                 cur_real_loss = cur_loss + cur_kl
-                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_avg_cos,cur_avg_norm, cur_loss
-                                   , cur_kl,cur_aux_loss,
+                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_avg_cos, cur_avg_norm,
+                                   cur_loss
+                                   , cur_kl, cur_aux_loss,
                                    cur_real_loss)
 
         return glob_iter
@@ -204,7 +209,6 @@ class Runner():
             feed = self.data.get_feed(batch)
             target = GVar(batch)
             seq_len, batch_sz = batch.size()
-
 
             recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 

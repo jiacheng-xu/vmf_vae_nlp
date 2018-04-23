@@ -28,7 +28,7 @@ class unif_vMF(torch.nn.Module):
         kld_value = unif_vMF._vmf_kld(kappa, lat_dim) \
                     + unif_vMF._uniform_kld(0., self.norm_eps, 0., self.norm_max)
         self.kld = GVar(torch.from_numpy(np.array([kld_value])).float())
-        print('KLD: {}'.format(self.kld))
+        print('KLD: {}'.format(self.kld.data[0]))
 
     def estimate_param(self, latent_code):
         """

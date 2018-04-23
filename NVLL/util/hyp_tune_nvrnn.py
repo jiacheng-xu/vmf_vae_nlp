@@ -1,14 +1,15 @@
-base = 'PYTHONPATH=../ python nvll.py --cuda --lr 0.005 --batch_size 50 --eval_batch_size 50 --log_interval 200 --model nvrnn --epochs 70  --optim adam --data_name ptb --data_path ../data/ptb --clip 5 '
+base = 'PYTHONPATH=../ python nvll.py --cuda --lr 10 --batch_size 50 --eval_batch_size 50 --log_interval 200 --model nvrnn --epochs 70  --optim sgd --data_name ptb --data_path ../data/ptb --clip 0.25'
 
 bag = []
-for drop in [0.5]:
-    for emsize in [100, 400]:
-        for nhid in [100, 400]:
+for drop in [0.5, 0.7]:
+    for emsize in [100]:
+        for nhid in [400, 800]:
             for aux in [0.1, 0.0001]:
-                for dist in ['unifvmf', 'vmf']:
-                    for kappa in [32, 64, 128 , 256]:
+                # for dist in ['unifvmf', 'vmf']:
+                for dist in ['vmf']:
+                    for kappa in [8, 16, 32]:
                         for lat_dim in [32, 64, 128, 256]:
-                            for mix_unk in [0.0, 0.25, 0.5]:
+                            for mix_unk in [0.0, 0.25]:
                                 for nlayers in [1,2]:
                                     tmp = base+ '--input_z --dropout {} --emsize {} --nhid {} ' \
                                         '--aux_weight {} --dist {} --kappa {} --lat_dim {}' \
@@ -18,7 +19,7 @@ for drop in [0.5]:
                                     bag.append(tmp)
 print(len(bag))
 
-divid_pieces = 18
+divid_pieces = 8
 import random
 random.shuffle(bag)
 prints = [[] for _ in range(divid_pieces)]
