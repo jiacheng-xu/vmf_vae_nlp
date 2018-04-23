@@ -42,8 +42,8 @@ class Runner():
 
                 cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
                                                            self.data.dev)
+                val_loss = float(val_loss)
                 Runner.log_eval(self.writer, glob_iter, cur_loss, cur_kl, val_loss, False)
-
                 if not best_val_loss or val_loss < best_val_loss:
                     with open(self.args.save_name + ".model", 'wb') as f:
                         torch.save(self.model.state_dict(), f)
@@ -54,11 +54,11 @@ class Runner():
                 else:
                     dead_cnt += 1
                     self.args.cur_lr /= 1.2
-                if dead_cnt == 10:
+                if dead_cnt == 5:
                     raise KeyboardInterrupt
-                if epoch == 1 and best_val_loss >= 600:
+                if epoch == 1 and math.exp(best_val_loss) >= 350:
                     raise KeyboardInterrupt
-                if epoch == 3 and best_val_loss >= 300:
+                if epoch == 3 and math.exp(best_val_loss )>= 250:
                     raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
