@@ -16,7 +16,7 @@ def set_seed(args):
             torch.cuda.manual_seed(args.seed)
 
 
-def set_save_name_log(args):
+def set_save_name_log_nvdm(args):
     args.save_name = '/backup2/jcxu/exp-nvdm/Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}'.format(
         args.data_name, str(args.dist), args.model,
         args.emsize,
@@ -44,9 +44,8 @@ def set_save_name_log_nvrnn(args):
 def main():
     args = NVLL.argparser.parse_arg()
     if args.model == 'nvdm':
-
         set_seed(args)
-        args, writer = set_save_name_log(args)
+        args, writer = set_save_name_log_nvdm(args)
         print("Current dir {}".format(os.getcwd()))
 
         from NVLL.data.ng import DataNg
@@ -54,13 +53,14 @@ def main():
         from NVLL.framework.run_nvdm import Runner
 
         data = DataNg(args)
-        model = BowVAE(args, vocab_size=2000, n_hidden=args.nhid, n_lat=args.lat_dim,
-                       n_sample=3, dist=args.dist)
+        model = BowVAE(args, vocab_size=data.vocab_size, n_hidden=args.nhid, n_lat=args.lat_dim,
+                       n_sample=5, dist=args.dist)
         if torch.cuda.is_available():
             model = model.cuda()
         runner = Runner(args, model, data, writer)
         runner.start()
         runner.end()
+
     elif args.model == 'nvrnn':
 
         set_seed(args)

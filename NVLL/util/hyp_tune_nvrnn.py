@@ -1,4 +1,4 @@
-base = 'PYTHONPATH=../ python nvll.py --cuda --lr 10 --batch_size 50 --eval_batch_size 50 --log_interval 200 --model nvrnn --epochs 70  --optim sgd --data_name ptb --data_path ../data/ptb --clip 0.25'
+base = 'PYTHONPATH=../ python nvll.py --cuda --lr 10 --batch_size 50 --eval_batch_size 50 --log_interval 200 --model nvrnn --epochs 70  --optim sgd --data_name ptb --data_path ../data/ptb --clip 0.25 '
 
 bag = []
 for drop in [0.5, 0.7]:

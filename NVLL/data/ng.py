@@ -15,6 +15,13 @@ class DataNg():
         self.set_dev(1000)
         self.test_batches = DataNg.create_batches(len(self.test[0]), args.eval_batch_size, shuffle=True)
         self.dev_batches = DataNg.create_batches(len(self.dev[0]), args.eval_batch_size, shuffle=True)
+        self.read_vocab(os.path.join(args.data_path,'vocab.new'))
+
+    def read_vocab(self, path):
+        with open(path,'r') as fd:
+            lines = fd.read().splitlines()
+            self.vocab_size = len(lines)
+            print("Vocab size: {}".format(len(lines)))
 
     def set_dev(self, num=100):
         l = list(range(len(self.test[0])))
@@ -80,7 +87,7 @@ class DataNg():
         return batches
 
     @staticmethod
-    def fetch_data(data, count, idx_batch, vocab_size=2000):
+    def fetch_data(data, count, idx_batch, vocab_size):
         """fetch input data by batch."""
         batch_size = len(idx_batch)
         data_batch = np.zeros((batch_size, vocab_size))

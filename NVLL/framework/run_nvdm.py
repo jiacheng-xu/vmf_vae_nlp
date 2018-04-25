@@ -65,7 +65,7 @@ class Runner():
 
     def end(self):
         # Load the best saved model.
-        model = BowVAE(self.args, vocab_size=2000, n_hidden=self.args.nhid,
+        model = BowVAE(self.args, vocab_size=self.data.vocab_size, n_hidden=self.args.nhid,
                        n_lat=self.args.lat_dim,
                        n_sample=3, dist=self.args.dist)
         model.load_state_dict(torch.load(self.args.save_name + '.model'),
@@ -140,7 +140,7 @@ class Runner():
 
             glob_iter += 1
             data_batch, count_batch = DataNg.fetch_data(
-                self.data.train[0], self.data.train[1], batch)
+                self.data.train[0], self.data.train[1], batch, self.data.vocab_size)
 
             model.zero_grad()
 
@@ -201,7 +201,7 @@ class Runner():
         word_cnt = 0
         doc_cnt = 0
         start_time = time.time()
-        ntokens = 2000
+        ntokens = self.data.vocab_size
 
         for idx, batch in enumerate(dev_batches):
             data_batch, count_batch = self.data.fetch_data(

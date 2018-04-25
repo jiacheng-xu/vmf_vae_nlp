@@ -34,10 +34,10 @@ class PlayNVRNN():
         return args
 
     def load_model(self, path, name):
-        model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary),
-                       self.args.emsize,
+        model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary), self.args.emsize,
                        self.args.nhid, self.args.lat_dim, self.args.nlayers,
-                       dropout=self.args.dropout, tie_weights=self.args.tied)
+                       dropout=self.args.dropout, tie_weights=self.args.tied,
+                       input_z=self.args.input_z, mix_unk=self.args.mix_unk)
         model.load_state_dict(torch.load(os.path.join(path, name + '.model')))
         model = model.cuda()
         return model
@@ -46,16 +46,9 @@ class PlayNVRNN():
         # Load the best saved model.
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, self.model,
                                                     self.data.test)
-        Runner.log_eval(cur_loss, cur_kl, test_loss, True)
+        Runner.log_eval(None, 0, cur_loss, cur_kl, test_loss, True)
 
     def evaluate(self, args, model, dev_batches):
-        """
-        Standard evaluation function on dev or test set.
-        :param args:
-        :param model:
-        :param dev_batches:
-        :return:
-        """
 
         # Turn on training mode which enables dropout.
         model.eval()
@@ -63,33 +56,38 @@ class PlayNVRNN():
 
         acc_loss = 0
         acc_kl_loss = 0
-        acc_total_loss = 0
+        acc_aux_loss = 0
+        acc_avg_cos = 0
+        acc_avg_norm = 0
+
+        batch_cnt = 0
         all_cnt = 0
+        cnt = 0
         start_time = time.time()
 
         for idx, batch in enumerate(dev_batches):
             feed = self.data.get_feed(batch)
             target = GVar(batch)
             seq_len, batch_sz = batch.size()
-            tup, kld, decoded = model(feed, target)
 
-            flatten_decoded = decoded.view(-1, self.model.ntoken)
-            flatten_target = target.view(-1)
-            loss = self.criterion(flatten_decoded, flatten_target)  # batch_sz * seq, loss
-            sum_kld = torch.sum(kld)
-            total_loss = loss + sum_kld * self.args.kl_weight
+            recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 
-            acc_total_loss += loss.data * seq_len * batch_sz + sum_kld.data
-            acc_loss += loss.data * seq_len * batch_sz
-            acc_kl_loss += sum_kld.data
+            acc_loss += recon_loss.data * seq_len * batch_sz
+            acc_kl_loss += torch.sum(kld).data
+            acc_aux_loss += torch.sum(aux_loss).data
+            acc_avg_cos += tup['avg_cos'].data
+            acc_avg_norm += tup['avg_norm'].data
+
+            cnt += 1
+            batch_cnt += batch_sz
             all_cnt += batch_sz * seq_len
 
-        # word ppl
-        cur_loss = acc_loss[0] / all_cnt  # word loss
+        cur_loss = acc_loss[0] / all_cnt
         cur_kl = acc_kl_loss[0] / all_cnt
-        # cur_real_loss = acc_real_loss / doc_cnt
+        cur_aux_loss = acc_aux_loss[0] / all_cnt
+        cur_avg_cos = acc_avg_cos[0] / cnt
+        cur_avg_norm = acc_avg_norm[0] / cnt
         cur_real_loss = cur_loss + cur_kl
-        elapsed = time.time() - start_time
 
         # Runner.log_eval(print_ppl)
         # print('loss {:5.2f} | KL {:5.2f} | ppl {:8.2f}'.format(            cur_loss, cur_kl, math.exp(print_ppl)))
@@ -101,12 +99,16 @@ class PlayNVRNN():
         model.eval()
         model.FLAG_train = False
         start_time = time.time()
+
         acc_loss = 0
         acc_kl_loss = 0
-        acc_total_loss = 0
+        acc_aux_loss = 0
+        acc_avg_cos = 0
+        acc_avg_norm = 0
 
         batch_cnt = 0
         all_cnt = 0
+        cnt = 0
         random.shuffle(train_batches)
 
         if self.args.dist == 'nor':
@@ -122,30 +124,30 @@ class PlayNVRNN():
 
             target = GVar(batch)
 
-            tup, kld, decoded = model(feed, target)
+            recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 
-            flatten_decoded = decoded.view(-1, self.model.ntoken)
-            flatten_target = target.view(-1)
-            loss = self.criterion(flatten_decoded, flatten_target)  # seq, loss
-            detail_loss = self.detail_crit(flatten_decoded, flatten_target) \
-                .view(seq_len, batch_sz)
-            sum_kld = torch.sum(kld)
-            vs.add_batch(target.data, tup, kld.data, detail_loss.data)
+            acc_loss += recon_loss.data * seq_len * batch_sz
+            acc_kl_loss += torch.sum(kld).data
+            acc_aux_loss += torch.sum(aux_loss).data
+            acc_avg_cos += tup['avg_cos'].data
+            acc_avg_norm += tup['avg_norm'].data
 
-            acc_total_loss += loss.data * seq_len * batch_sz + sum_kld.data
-            acc_loss += loss.data * seq_len * batch_sz
-            acc_kl_loss += sum_kld.data
-
-            batch_cnt += 1
+            cnt += 1
+            batch_cnt += batch_sz
             all_cnt += batch_sz * seq_len
+
+            vs.add_batch(target.data, tup, kld.data)
 
         cur_loss = acc_loss[0] / all_cnt
         cur_kl = acc_kl_loss[0] / all_cnt
-        # cur_real_loss = acc_real_loss / doc_cnt
-        cur_real_loss = acc_total_loss[0] / all_cnt
-        Runner.log_instant(None, self.args, glob_iter, epo, start_time, cur_loss
-                           , cur_kl,
-                           cur_real_loss)
+        cur_aux_loss = acc_aux_loss[0] / all_cnt
+        cur_avg_cos = acc_avg_cos[0] / cnt
+        cur_avg_norm = acc_avg_norm[0] / cnt
+        cur_real_loss = cur_loss + cur_kl
+        Runner.log_instant(None, self.args, glob_iter, epo, start_time, cur_avg_cos, cur_avg_norm,
+                                   cur_loss
+                                   , cur_kl, cur_aux_loss,
+                                   cur_real_loss)
         vs.write_log()
 
 
@@ -194,23 +196,18 @@ class visual_vmf():
         self.logs = []
         self.dict = d
 
-    def add_batch(self, target, tup, kld, loss):
-        seq_len, batch_sz = loss.size()
+    def add_batch(self, target, tup, kld):
         _seq_len, _batch_sz = target.size()
         # __batch = kld.size()[0]
-        assert seq_len == _seq_len
-        assert batch_sz == _batch_sz
         mu = tup['mu']
         # print(target.size())
         # print(batch_sz)
-        for b in range(batch_sz):
+        for b in range(_batch_sz):
             this_target = target[:, b]
             this_mu = mu[b]
-            this_loss = loss[:, b]
-            self.add_single(this_target, this_mu,
-                            this_loss)
+            self.add_single(this_target, this_mu)
 
-    def add_single(self, target, mu, loss):
+    def add_single(self, target, mu):
         thismu = mu.data
         length = len(target)
         seq = ''
@@ -226,8 +223,10 @@ class visual_vmf():
         self.logs.append(s)
 
     def write_log(self):
-        with open('vc.txt', 'w') as f:
+        with open('vh.txt', 'w') as f:
             f.write('\n'.join(self.logs))
+        # with open('vu.txt', 'w') as f:
+        #     f.write('\n'.join(self.logs))
 
 
 def query(word):
@@ -263,27 +262,38 @@ def compute_cos(files):
         x = 0
         for b in range(len(bag)):
             x += bag[b]
-        return x / len(bag)
+        tmp = x / len(bag)
+        # print('avg of bag {}'.format(tmp))
+        return tmp
 
     def comp_cos(a, b):
         return (torch.sum(a * b) / (torch.norm(a) * torch.norm(b)))
 
     A = bags[0]  # h
     B = bags[1]  # j
-    # for idx, aa in enumerate(A):
-    #     for jdx, bb in enumerate(B):
-    #         print('{}\t{}\t{}'.format(idx,jdx,comp_cos(aa,bb)))
 
+    print(comp_cos(_mean_of_bag(A), _mean_of_bag(B)))
+    print('-'*50)
+    arec = []
+
+    for idx, aa in enumerate(A):
+        for jdx in range(idx, len(A)):
+            print('{}\t{}\t{}'.format(idx,jdx,comp_cos(aa,A[jdx])))
+            arec.append(comp_cos(aa,A[jdx]))
+    print(sum(arec) / float(len(arec)))
+    print('-' * 50)
+    brec = []
     for idx, aa in enumerate(B):
         for jdx in range(idx, len(B)):
             print("{}\t{}\t{}".format(idx, jdx, comp_cos(aa, B[jdx])))
-
+            brec.append(comp_cos(aa, B[jdx]))
+    print(sum(brec) / float(len(brec)))
 if __name__ == '__main__':
-    # player = PlayNVRNN('/home/jcxu/vae_txt/NVLL',
-    #                    'Dataptb_Distvmf_Modelnvrnn_Emb500_Hid500_lat200_lr0.001_drop0.4'
+    # player = PlayNVRNN('/backup2/jcxu/exp-nvrnn',
+    #                    'Dataptb_Distvmf_Modelnvrnn_Emb100_Hid800_lat32_lr10.0_drop0.5_kappa32.0_auxw0.0001_normfFalse_nlay2_mixunk0.25_inpzTrue'
     #                    , '/home/jcxu/vae_txt/data/ptb')
-    # # player.eva()
-    # player.play_eval(player.args, player.model, player.data.demo, 0, 0, 0)
+    # player.eva()
+    # player.play_eval(player.args, player.model, player.data.demo_h, 0, 0, 0)
 
     os.chdir('/home/jcxu/vae_txt/NVLL/framework')
-    compute_cos(['vh.txt', 'vc.txt'])
+    compute_cos(['vu.txt', 've.txt'])
