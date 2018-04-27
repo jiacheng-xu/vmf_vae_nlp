@@ -2,7 +2,7 @@ from collections import OrderedDict
 from operator import itemgetter
 import torch
 import random
-
+import numpy as np
 def cos(a, b):
     """
     Compute cosine similarity between two vectors.
@@ -79,3 +79,22 @@ class Dictionary(object):
         with open(file_name, 'w') as f:
             f.write(wt_string)
 
+def swap_by_batch(inp, ratio):
+    seq_len, batchsz = inp.size()
+    for t in range(seq_len):
+        if random.random() < ratio:
+            rand_candidate = random.randint(0,seq_len-1)
+            a = inp[rand_candidate,:].data
+            b = inp[t,:].data
+            inp[rand_candidate] = b
+            inp[t] = a
+    return inp
+
+def replace_by_batch( inp, ratio, ntokens):
+    seq_len, batchsz = inp.size()
+    for t in range(seq_len):
+        if random.random() < ratio:
+            tmp = np.random.randint(ntokens, size=batchsz)
+            tmp = torch.from_numpy(tmp)
+            inp[t] = tmp
+    return inp

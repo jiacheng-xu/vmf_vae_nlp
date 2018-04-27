@@ -23,7 +23,7 @@ class RNNVAE(nn.Module):
         self.dist_type = args.dist  # Gauss or vMF = normal vae;
         # zero = no encoder and VAE, use 0 as start of decoding; sph = encode word embedding as bow and project to a unit sphere
 
-        self.run = self.forward_fly if args.fly else self.forward_ground
+        # self.run = self.forward_fly if args.fly else self.forward_ground
 
         # VAE shared param
         self.drop = nn.Dropout(dropout)  # Need explicit dropout
@@ -94,23 +94,16 @@ class RNNVAE(nn.Module):
         return torch.transpose(x, 1, 0)
 
     def dropword(self, emb, drop_rate=0.3):
-        if self.FLAG_train:
-            UNKs = GVar(torch.ones(emb.size()[0], emb.size()[1]).long() * 2)
-            UNKs = self.emb(UNKs)
-            # print(UNKs, emb)
-            masks = numpy.random.binomial(1, drop_rate, size=(emb.size()[0], emb.size()[1]))
-            masks = GVar(torch.FloatTensor(masks)).unsqueeze(2).expand_as(UNKs)
-            emb = emb * (1 - masks) + UNKs * masks
-            return emb
-        else:
-            return emb
+
+        UNKs = GVar(torch.ones(emb.size()[0], emb.size()[1]).long() * 2)
+        UNKs = self.emb(UNKs)
+        # print(UNKs, emb)
+        masks = numpy.random.binomial(1, drop_rate, size=(emb.size()[0], emb.size()[1]))
+        masks = GVar(torch.FloatTensor(masks)).unsqueeze(2).expand_as(UNKs)
+        emb = emb * (1 - masks) + UNKs * masks
+        return emb
 
     def forward(self, inp, target):
-        seq_len, batch_sz = inp.size()
-        recon_loss, kld, aux_loss, tup, vecs = self.run(inp, target)
-        return recon_loss, kld, aux_loss, tup, vecs
-
-    def forward_ground(self, inp, target):
         """
         Forward with ground truth (maybe mixed with UNK) as input.
         :param inp:  seq_len, batch_sz
@@ -127,7 +120,8 @@ class RNNVAE(nn.Module):
             aux_loss = tup['redundant_norm'].view(batch_sz)
         else:
             aux_loss = GVar(torch.zeros(batch_sz))
-
+        if 'norm' not in tup:
+            tup['norm'] =  GVar(torch.zeros(batch_sz))
         # stat
         avg_cos = check_dispersion(vecs)
         avg_norm = torch.mean(tup['norm'])
@@ -135,14 +129,17 @@ class RNNVAE(nn.Module):
         tup['avg_norm'] = avg_norm
 
         vec = torch.mean(vecs,dim=0)
-        decoded = self.forward_decode_ground(emb, vec)  # (seq_len, batch, dict sz)
+        if self.args.fly:
+            decoded = self.forward_decode_fly(emb, vec)
+        else:
+            decoded = self.forward_decode_ground(emb, vec)  # (seq_len, batch, dict sz)
 
         flatten_decoded = decoded.view(-1, self.ntoken)
         flatten_target = target.view(-1)
         loss = self.criterion(flatten_decoded, flatten_target)
         return loss, kld, aux_loss, tup, vecs
 
-    def forward_fly(self):
+    def forward_fly(self, inp, target):
         pass
 
     def forward_enc(self, inp):
@@ -184,8 +181,13 @@ class RNNVAE(nn.Module):
         return tup, kld, out
 
     def forward_decode_ground(self, emb, lat_code):
-        # emb: seq, batch, ninp
-        # latcode : batch, nlat
+        """
+
+        :param emb: seq, batch, ninp
+        :param lat_code: batch, nlat
+        :return:
+        """
+
         seq_len, batch_sz, _ = emb.size()
 
         # Dropword
@@ -199,9 +201,6 @@ class RNNVAE(nn.Module):
         # convert z to init h and c
         # (num_layers * num_directions, batch, hidden_size)
         init_h, init_c = self.convert_z_to_hidden(lat_code, batch_sz)
-        # print(init_c.size(), init_h.size())
-        # print(emb.size())
-        # print(self.decoder_rnn)
         output, hidden = self.decoder_rnn(emb, (init_h, init_c))
 
         # output.size       (seq_len, batch, hidden_size)
@@ -210,8 +209,22 @@ class RNNVAE(nn.Module):
         decoded = decoded.view(output.size(0), output.size(1), decoded.size(1))
         return decoded
 
-    def forward_decode_fly(self, lat_code):
-        pass
+    def forward_decode_fly(self, emb, lat_code):
+        seq_len, batch_sz, _ = emb.size()
+        outputs_prob = GVar(torch.FloatTensor(seq_len, batch_sz, self.ntoken))
+        outputs = torch.LongTensor(seq_len, batch_sz)
+
+        sos = GVar(torch.ones(batch_sz).long())     # sos id=1
+        unk = GVar(torch.ones(batch_sz).long()) * 2 # unk id=2
+
+        emb_t = self.drop(self.encoder(unk)).unsqueeze(0)
+        emb_0 = self.drop(self.encoder(sos)).unsqueeze(0)
+
+        if self.input_z:
+            # emb_t_comb = torch.cat([emb_t, lat_to_cat], dim=2)
+            # emt_0_comb = torch.cat([emb_0, lat_to_cat], dim=2)
+            pass
+
 
     def reparameterize(self, mu, logvar):
         if self.training:

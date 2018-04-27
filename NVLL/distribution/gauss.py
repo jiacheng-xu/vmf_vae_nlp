@@ -30,7 +30,7 @@ class Gauss(nn.Module):
     def sample_cell(self, batch_size):
         eps = torch.autograd.Variable(torch.normal(torch.zeros((batch_size, self.lat_dim))))
         eps = eps.cuda()
-        return eps
+        return eps.unsqueeze(0)
 
     def build_bow_rep(self, lat_code, n_sample):
         batch_sz = lat_code.size()[0]
@@ -49,6 +49,7 @@ class Gauss(nn.Module):
             eps = self.sample_cell(batch_size=batch_sz)
             vec = torch.mul(torch.exp(logvar), eps) + mean
             vecs.append(vec)
+        vecs = torch.cat(vecs, dim=0)
         return tup, kld, vecs
 
     def get_aux_loss_term(self, tup):

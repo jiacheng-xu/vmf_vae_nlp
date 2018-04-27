@@ -55,5 +55,11 @@ def parse_arg():
 
     parser.add_argument('--input_z',action='store_true',default=False)
     parser.add_argument('--mix_unk', type=float,default=0)
+
+    parser.add_argument('--swap', action='store', default=0.1,type=float,
+                        help='Probability of swapping a word')
+    parser.add_argument('--replace', action='store', default=0.1, type=float,
+                        help='Probability of replacing a word with a random word.')
+
     args = parser.parse_args()
     return args

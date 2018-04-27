@@ -1,14 +1,14 @@
-base = 'PYTHONPATH=../ python nvll.py --cuda --lr 0.005 --batch_size 50 --eval_batch_size 50 --log_interval 200 --model nvdm --epochs 70  --optim adam --data_name rcv --data_path ../data/rcv --clip 1 '
+base = 'PYTHONPATH=../ python nvll.py --cuda --lr 0.010 --batch_size 50 --eval_batch_size 50 --log_interval 200 --model nvdm --epochs 70  --optim adam --data_name rcv --data_path ../data/rcv --clip 2 '
 
 bag = []
 for drop in [0., 0.2]:
     for emsize in [128,512]:
-        for nhid in [256, 512, 1024]:
+        for nhid in [256, 512]:
             for aux in [0.1, 0.0001]:
                 # for dist in ['unifvmf', 'vmf']:
                 for dist in ['vmf']:
-                    for kappa in [64,128,256]:
-                        for lat_dim in [25, 50, 100, 200]:
+                    for kappa in [25,50,200]:
+                        for lat_dim in [25, 50,  200]:
                             tmp = base+ ' --dropout {} --emsize {} --nhid {} ' \
                                         '--aux_weight {} --dist {} --kappa {} --lat_dim {}' \
                                                     ' '.format\

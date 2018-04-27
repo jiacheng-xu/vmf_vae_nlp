@@ -12,12 +12,19 @@ import torch
 from  NVLL.data.lm import DataLM
 from NVLL.framework.run_nvrnn import Runner
 from NVLL.model.nvrnn import RNNVAE
-from NVLL.util.util import GVar
+from NVLL.util.util import GVar,swap_by_batch,replace_by_batch
 
 
 class PlayNVRNN():
-    def __init__(self, load_path, load_name, data_path):
+    def __init__(self, load_path, load_name, data_path, swap, replace, mix_unk):
         self.args = self.load_args(load_path, load_name)
+        print(swap, replace, mix_unk)
+        if swap is not None:
+            self.args.swap = swap
+        if replace is not None:
+            self.args.replace = replace
+        if mix_unk is not None:
+            self.args.mix_unk = mix_unk
         self.data = self.load_data(data_path)
         self.model = self.load_model(load_path, load_name)
 
@@ -29,6 +36,8 @@ class PlayNVRNN():
         return data
 
     def load_args(self, path, name):
+        from NVLL.argparser import parse_arg
+
         with open(os.path.join(path, name + '.args'), 'rb') as f:
             args = torch.load(f)
         return args
@@ -47,6 +56,7 @@ class PlayNVRNN():
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, self.model,
                                                     self.data.test)
         Runner.log_eval(None, 0, cur_loss, cur_kl, test_loss, True)
+        return cur_loss, cur_kl, test_loss
 
     def evaluate(self, args, model, dev_batches):
 
@@ -69,6 +79,11 @@ class PlayNVRNN():
             feed = self.data.get_feed(batch)
             target = GVar(batch)
             seq_len, batch_sz = batch.size()
+
+            if self.args.swap > 0.00001:
+                feed = swap_by_batch(feed, self.args.swap)
+            if self.args.replace > 0.00001:
+                feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
 
             recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 
@@ -289,11 +304,22 @@ def compute_cos(files):
             brec.append(comp_cos(aa, B[jdx]))
     print(sum(brec) / float(len(brec)))
 if __name__ == '__main__':
-    # player = PlayNVRNN('/backup2/jcxu/exp-nvrnn',
-    #                    'Dataptb_Distvmf_Modelnvrnn_Emb100_Hid800_lat32_lr10.0_drop0.5_kappa32.0_auxw0.0001_normfFalse_nlay2_mixunk0.25_inpzTrue'
-    #                    , '/home/jcxu/vae_txt/data/ptb')
-    # player.eva()
+    bag = []
+    for swap in [0.,0.25,0.5,1]:
+        for replace in [0.,0.25,0.5,1]:
+            for unk in [0.,0.25,0.5,1]:
+
+
+                player = PlayNVRNN('/backup2/jcxu/exp-nvrnn',
+                                   'Dataptb_Distnor_Modelnvrnn_Emb100_Hid400_lat32_lr0.1_drop0.7_kappa16.0_auxw0.0_normfFalse_nlay1_mixunk1.0_inpzTrue'
+                                   , '/home/jcxu/vae_txt/data/ptb',swap=swap,replace=replace,mix_unk=unk)
+                cur_loss, cur_kl, test_loss = player.eva()
+                s = '{}\t{}\t{}\t{}\t{}\t{}'.format(swap, replace, unk, cur_loss,cur_kl,cur_loss)
+                bag.append(s)
+                print(bag)
+    for b in bag:
+        print(b)
     # player.play_eval(player.args, player.model, player.data.demo_h, 0, 0, 0)
 
-    os.chdir('/home/jcxu/vae_txt/NVLL/framework')
-    compute_cos(['vu.txt', 've.txt'])
+    # os.chdir('/home/jcxu/vae_txt/NVLL/framework')
+    # compute_cos(['vu.txt', 've.txt'])

@@ -8,9 +8,12 @@ import time
 import torch
 
 from NVLL.data.ng import DataNg
-from NVLL.model.nvdm import BowVAE
+
+# from NVLL.model.nvdm import BowVAE
+from NVLL.model.nvdm_v2 import BowVAE
 # from NVLL.util.util import schedule, GVar, maybe_cuda
 from NVLL.util.util import schedule, GVar
+
 
 class Runner():
     def __init__(self, args, model, data, writer):
@@ -25,13 +28,14 @@ class Runner():
             self.optim = torch.optim.Adam(model.parameters(), lr=self.args.lr)
         else:
             raise NotImplementedError
+        self.dead_cnt = 0
+        self.glob_iter = 0
+        self.best_val_loss = None
 
     def start(self):
         print("Model {}".format(self.model))
         logging.info("Model {}".format(self.model))
-        best_val_loss = None
-        glob_iter = 0
-        dead_cnt = 0
+
         try:
             for epoch in range(1, self.args.epochs + 1):
                 self.args.kl_weight = schedule(epoch)
@@ -40,25 +44,9 @@ class Runner():
 
                 self.data.set_train_batches(self.args)
 
-                glob_iter = self.train_epo(self.args, self.model, self.data.train_batches, epoch,
-                                           epoch_start_time, glob_iter)
+                self.train_epo(self.args, self.model, self.data.train_batches, epoch,
+                               epoch_start_time)
 
-                cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
-                                                           self.data.dev[0], self.data.dev[1], self.data.dev_batches)
-                Runner.log_eval(self.writer, glob_iter, cur_loss, cur_kl, val_loss, False)
-
-                val_loss = val_loss.data[0]
-                if not best_val_loss or val_loss < best_val_loss:
-                    with open(self.args.save_name + ".model", 'wb') as f:
-                        torch.save(self.model.state_dict(), f)
-                    with open(self.args.save_name + ".args", 'wb') as f:
-                        torch.save(self.args, f)
-                    best_val_loss = val_loss
-                    dead_cnt = 0
-                else:
-                    dead_cnt += 1
-                if dead_cnt == 5:
-                    raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
@@ -82,7 +70,7 @@ class Runner():
     @staticmethod
     def log_eval(writer, glob_iter, recon_loss, kl_loss, loss, is_test=False):
         recon_loss = recon_loss.data[0]
-        kl_loss  = kl_loss.data[0]
+        kl_loss = kl_loss.data[0]
         loss = loss.data[0]
         # print('=' * 89)
         if is_test:
@@ -90,40 +78,43 @@ class Runner():
                 '| End of training | Recon Loss {:5.2f} | KL Loss {:5.2f} | Test Loss {:5.2f} | Test PPL {:8.2f} |'.format(
                     recon_loss, kl_loss, loss, math.exp(loss)))
             writer.add_scalars('test', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
-                                             'val_loss': loss,
-                                             'ppl': math.exp(loss)
-                                             })
+                                        'val_loss': loss,
+                                        'ppl': math.exp(loss)
+                                        })
         else:
             print('| EVAL | Recon Loss {:5.2f} | KL Loss {:5.2f} | Eval Loss {:5.2f} | Eval PPL {:8.2f} |'.format(
                 recon_loss, kl_loss, loss, math.exp(loss)))
             writer.add_scalars('eval', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
                                         'val_loss': loss,
                                         'ppl': math.exp(loss)
-                                        },global_step=glob_iter)
+                                        }, global_step=glob_iter)
         print('=' * 89)
 
     @staticmethod
-    def log_instant(writer, args, glob_iter, epoch, epoch_start_time,cur_avg_cos,cur_avg_norm,
+    def log_instant(writer, args, glob_iter, epoch, epoch_start_time, cur_avg_cos, cur_avg_norm,
                     recon_loss, kl_loss, aux_loss, val_loss):
         try:
             print(
-                 '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
-                 'loss: {:5.2f} | Total Loss {:5.2f} | PPL {:8.2f}'.format(
-                     epoch, (time.time() - epoch_start_time), args.kl_weight, cur_avg_cos, cur_avg_norm,
-                                     recon_loss, kl_loss, aux_loss,val_loss, math.exp(val_loss)))
+                '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
+                'loss: {:5.2f} | Total Loss {:5.2f} | PPL {:8.2f}'.format(
+                    epoch, (time.time() - epoch_start_time), args.kl_weight, cur_avg_cos, cur_avg_norm,
+                    recon_loss, kl_loss, aux_loss, val_loss, math.exp(val_loss)))
             if writer is not None:
-                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight,'cur_avg_cos':cur_avg_cos,
-                                             'cur_avg_norm':cur_avg_norm,'recon_loss':recon_loss,'kl_loss':kl_loss,
-                                             'aux_loss':aux_loss,
+                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight, 'cur_avg_cos': cur_avg_cos,
+                                             'cur_avg_norm': cur_avg_norm, 'recon_loss': recon_loss, 'kl_loss': kl_loss,
+                                             'aux_loss': aux_loss,
                                              'val_loss': val_loss,
                                              'ppl': math.exp(val_loss)
                                              }, global_step=glob_iter)
         except OverflowError:
             print('Overflow')
 
-    def train_epo(self, args, model, train_batches, epo, epo_start_time, glob_iter):
+    def train_epo(self, args, model, train_batches, epo, epo_start_time):
         model.train()
         start_time = time.time()
+
+        if self.args.optim == 'sgd':
+            self.optim = torch.optim.SGD(model.parameters(), lr=self.args.cur_lr)
 
         acc_loss = 0
         acc_kl_loss = 0
@@ -138,7 +129,7 @@ class Runner():
         for idx, batch in enumerate(train_batches):
             self.optim.zero_grad()
 
-            glob_iter += 1
+            self.glob_iter += 1
             data_batch, count_batch = DataNg.fetch_data(
                 self.data.train[0], self.data.train[1], batch, self.data.vocab_size)
 
@@ -147,7 +138,6 @@ class Runner():
             data_batch = GVar(torch.FloatTensor(data_batch))
 
             recon_loss, kld, aux_loss, tup, vecs = model(data_batch)
-
 
             # total_loss = torch.mean(recon_loss + kld * args.kl_weight)
             total_loss = torch.mean(recon_loss + kld * args.kl_weight + aux_loss * args.aux_weight)
@@ -183,12 +173,47 @@ class Runner():
                 cur_avg_norm = acc_avg_norm[0] / cnt
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
-                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time,
-                                   cur_avg_cos,cur_avg_norm, cur_loss
-                                   , cur_kl,cur_aux_loss,
-                                   cur_real_loss)
 
-        return glob_iter
+                if cur_kl < 0.1:
+                    raise KeyboardInterrupt
+
+                Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time,
+                                   cur_avg_cos, cur_avg_norm, cur_loss
+                                   , cur_kl, cur_aux_loss,
+                                   cur_real_loss)
+                acc_loss = 0
+                acc_kl_loss = 0
+                acc_aux_loss = 0
+                acc_avg_cos = 0
+                acc_avg_norm = 0
+                word_cnt = 0
+                doc_cnt = 0
+                cnt = 0
+            if idx % (6 * args.log_interval) == 0 and idx > 0:
+                self.eval_interface()
+
+    def eval_interface(self):
+
+        cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
+                                                   self.data.dev[0], self.data.dev[1], self.data.dev_batches)
+        Runner.log_eval(self.writer, self.glob_iter, cur_loss, cur_kl, val_loss, False)
+
+        val_loss = val_loss.data[0]
+        if not self.best_val_loss or val_loss < self.best_val_loss:
+            with open(self.args.save_name + ".model", 'wb') as f:
+                torch.save(self.model.state_dict(), f)
+            with open(self.args.save_name + ".args", 'wb') as f:
+                torch.save(self.args, f)
+            self.best_val_loss = val_loss
+            self.dead_cnt = 0
+        else:
+            self.dead_cnt += 1
+            self.args.cur_lr /= 1.1
+        if self.best_val_loss > 7.45:
+            raise KeyboardInterrupt
+
+        if self.dead_cnt == 3:
+            raise KeyboardInterrupt
 
     def evaluate(self, args, model, corpus_dev, corpus_dev_cnt, dev_batches):
 

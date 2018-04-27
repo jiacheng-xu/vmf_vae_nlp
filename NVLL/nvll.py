@@ -49,7 +49,8 @@ def main():
         print("Current dir {}".format(os.getcwd()))
 
         from NVLL.data.ng import DataNg
-        from NVLL.model.nvdm import BowVAE
+        # from NVLL.model.nvdm import BowVAE
+        from NVLL.model.nvdm_v2 import BowVAE
         from NVLL.framework.run_nvdm import Runner
 
         data = DataNg(args)
@@ -67,12 +68,15 @@ def main():
         args, writer = set_save_name_log_nvrnn(args)
         print("Current dir {}".format(os.getcwd()))
 
+
         from  NVLL.data.lm import DataLM
         from NVLL.model.nvrnn import RNNVAE
         from NVLL.framework.run_nvrnn import Runner
         data = DataLM(args.data_path, args.batch_size, args.eval_batch_size)
         model = RNNVAE(args, args.enc_type, len(data.dictionary), args.emsize, args.nhid, args.lat_dim, args.nlayers,
                        dropout=args.dropout, tie_weights=False,input_z=args.input_z, mix_unk=args.mix_unk)
+        if args.load is not None:
+            model.load_state_dict(torch.load(args.load),strict=False)
         if torch.cuda.is_available():
             model = model.cuda()
         runner = Runner(args, model, data, writer)

@@ -6,7 +6,7 @@ import time
 import torch
 
 from NVLL.model.nvrnn import RNNVAE
-from NVLL.util.util import schedule, GVar
+from NVLL.util.util import schedule, GVar,swap_by_batch, replace_by_batch
 
 
 class Runner():
@@ -56,10 +56,10 @@ class Runner():
                     self.args.cur_lr /= 1.1
                 if dead_cnt == 10:
                     raise KeyboardInterrupt
-                if epoch == 1 and math.exp(best_val_loss) >= 600:
-                    raise KeyboardInterrupt
-                if epoch == 8 and math.exp(best_val_loss) >= 180:
-                    raise KeyboardInterrupt
+                # if epoch == 1 and math.exp(best_val_loss) >= 600:
+                #     raise KeyboardInterrupt
+                # if epoch == 8 and math.exp(best_val_loss) >= 180:
+                #     raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
@@ -146,12 +146,16 @@ class Runner():
             seq_len, batch_sz = batch.size()
             feed = self.data.get_feed(batch)
 
+            if self.args.swap > 0.00001:
+                feed = swap_by_batch(feed, self.args.swap)
+            if self.args.replace > 0.00001:
+                feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
+
             glob_iter += 1
 
             target = GVar(batch)
 
             recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
-
             total_loss = recon_loss * seq_len + torch.mean(kld) * self.args.kl_weight + torch.mean(
                 aux_loss) * args.aux_weight
 
@@ -174,10 +178,10 @@ class Runner():
             if idx % args.log_interval == 0 and idx > 0:
                 cur_loss = acc_loss[0] / all_cnt
                 cur_kl = acc_kl_loss[0] / all_cnt
-                if cur_kl < 0.03:
-                    raise KeyboardInterrupt
-                if cur_kl > 0.7:
-                    raise KeyboardInterrupt
+                # if cur_kl < 0.03:
+                #     raise KeyboardInterrupt
+                # if cur_kl > 0.7:
+                #     raise KeyboardInterrupt
                 cur_aux_loss = acc_aux_loss[0] / all_cnt
                 cur_avg_cos = acc_avg_cos[0] / cnt
                 cur_avg_norm = acc_avg_norm[0] / cnt
@@ -210,6 +214,12 @@ class Runner():
             feed = self.data.get_feed(batch)
             target = GVar(batch)
             seq_len, batch_sz = batch.size()
+
+            if self.args.swap > 0.00001:
+                feed = swap_by_batch(feed, self.args.swap)
+            if self.args.replace > 0.00001:
+                feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
+
 
             recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 
