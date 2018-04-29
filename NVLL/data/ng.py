@@ -10,12 +10,15 @@ class DataNg():
     """
 
     def __init__(self, args):
-        self.train = DataNg.read_data(os.path.join(args.data_path, 'train.feat'))
-        self.test = DataNg.read_data(os.path.join(args.data_path, 'test.feat'))
+        self.train = DataNg.read_data(os.path.join(args.root_path,
+                                                   args.data_path, 'train.feat'))
+        self.test = DataNg.read_data(os.path.join(args.root_path,
+                                                  args.data_path, 'test.feat'))
         self.set_dev(1000)
         self.test_batches = DataNg.create_batches(len(self.test[0]), args.eval_batch_size, shuffle=True)
         self.dev_batches = DataNg.create_batches(len(self.dev[0]), args.eval_batch_size, shuffle=True)
-        self.read_vocab(os.path.join(args.data_path,'vocab.new'))
+        self.read_vocab(os.path.join(args.root_path,
+                                     args.data_path,'vocab.new'))
 
     def read_vocab(self, path):
         with open(path,'r') as fd:

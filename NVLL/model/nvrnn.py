@@ -15,6 +15,8 @@ class RNNVAE(nn.Module):
         super(RNNVAE, self).__init__()
         self.FLAG_train = True
         self.args = args
+        self.enc_type = enc_type
+        self.bi = args.bi
         self.lat_dim = lat_dim
         self.nhid = nhid
         self.nlayers = nlayers  # layers for decoding part
@@ -23,7 +25,6 @@ class RNNVAE(nn.Module):
         self.dist_type = args.dist  # Gauss or vMF = normal vae;
         # zero = no encoder and VAE, use 0 as start of decoding; sph = encode word embedding as bow and project to a unit sphere
 
-        # self.run = self.forward_fly if args.fly else self.forward_ground
 
         # VAE shared param
         self.drop = nn.Dropout(dropout)  # Need explicit dropout
@@ -34,10 +35,19 @@ class RNNVAE(nn.Module):
 
         # VAE recognition part
         if self.dist_type == 'nor' or 'vmf' or 'sph' or 'unifvmf':
-            if enc_type == 'lstm':
-                self.enc_lstm = nn.LSTM(ninp, nhid, 1, bidirectional=True, dropout=dropout)
-                self.hid4_to_lat = nn.Linear(4 * nhid, nhid)
-                self.enc = self.lstm_funct
+            _factor = 1
+            if enc_type == 'lstm' or 'gru':
+                if enc_type == 'lstm':
+                    _factor*=2
+                    self.enc_rnn = nn.LSTM(ninp, nhid, 1, bidirectional=args.bi, dropout=dropout)
+                elif enc_type =='gru':
+                    self.enc_rnn = nn.GRU(ninp, nhid, 1, bidirectional=args.bi, dropout=dropout)
+                if args.bi:
+                    _factor *= 2
+
+                self.hid4_to_lat = nn.Linear(_factor * nhid, nhid)
+
+                self.enc = self.rnn_funct
             elif enc_type == 'bow':
                 self.enc = nn.Linear(ninp, nhid)
             else:
@@ -79,13 +89,22 @@ class RNNVAE(nn.Module):
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder_out.weight = self.emb.weight
 
-
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
 
-    def lstm_funct(self, x):
+    def rnn_funct(self, x):
         batch_sz = x.size()[1]
-        output, (h_n, c_n) = self.enc_lstm(x)
-        concated_h_c = torch.cat((h_n[0], h_n[1], c_n[0], c_n[1]), dim=1)  # TODO
+        if self.enc_type == 'lstm':
+            output, (h_n, c_n) = self.enc_rnn(x)
+            if self.bi:
+                concated_h_c = torch.cat((h_n[0], h_n[1], c_n[0], c_n[1]), dim=1)
+            else:
+                concated_h_c = torch.cat((h_n[0], c_n[0]), dim=1)
+        elif self.enc_type =='gru':
+            output, h_n = self.enc_rnn(x)
+            if self.bi:
+                concated_h_c = torch.cat((h_n[0], h_n[1]), dim=1)
+            else:
+                concated_h_c = h_n[0]
         # H = concated_h_c.permute(1, 0, 2).contiguous().view(batch_sz, 4 * self.nhid)
         return self.hid4_to_lat(concated_h_c)
 

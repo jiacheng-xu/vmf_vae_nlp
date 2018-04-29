@@ -1,10 +1,10 @@
-import os
 import torch
+import os
 import logging
-from NVLL.util.util import GVar
-import NVLL.argparser
-
+import torch
 from tensorboardX import SummaryWriter
+
+import NVLL.argparser
 
 
 def set_seed(args):
@@ -17,11 +17,13 @@ def set_seed(args):
 
 
 def set_save_name_log_nvdm(args):
-    args.save_name = '/backup2/jcxu/exp-nvdm/Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}'.format(
-        args.data_name, str(args.dist), args.model,
-        args.emsize,
-        args.nhid, args.lat_dim, args.lr,
-        args.dropout, args.kappa,args.aux_weight,str(args.norm_func))
+    args.save_name = os.path.join(args.root_path, args.exp_path,
+                                  'Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}'
+                                  .format(
+                                      args.data_name, str(args.dist), args.model,
+                                      args.emsize,
+                                      args.nhid, args.lat_dim, args.lr,
+                                      args.dropout, args.kappa, args.aux_weight, str(args.norm_func)))
     writer = SummaryWriter(log_dir=args.save_name)
     log_name = args.save_name + '.log'
     logging.basicConfig(filename=log_name, level=logging.INFO)
@@ -29,12 +31,13 @@ def set_save_name_log_nvdm(args):
 
 
 def set_save_name_log_nvrnn(args):
-    args.save_name = '/backup2/jcxu/exp-nvrnn/Data{}_' \
-                     'Dist{}_Model{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}'.format(
-        args.data_name, str(args.dist), args.model,
+    args.save_name = os.path.join(args.root_path, args.exp_path, 'Data{}_' \
+              'Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}'
+                                  .format(
+        args.data_name, str(args.dist), args.model, args.enc_type, args.bi,
         args.emsize,
         args.nhid, args.lat_dim, args.lr,
-        args.dropout, args.kappa,args.aux_weight,str(args.norm_func),args.nlayers, args.mix_unk, args.input_z)
+        args.dropout, args.kappa, args.aux_weight, str(args.norm_func), args.nlayers, args.mix_unk, args.input_z))
     writer = SummaryWriter(log_dir=args.save_name)
     log_name = args.save_name + '.log'
     logging.basicConfig(filename=log_name, level=logging.INFO)
@@ -68,15 +71,15 @@ def main():
         args, writer = set_save_name_log_nvrnn(args)
         print("Current dir {}".format(os.getcwd()))
 
-
         from  NVLL.data.lm import DataLM
         from NVLL.model.nvrnn import RNNVAE
         from NVLL.framework.run_nvrnn import Runner
-        data = DataLM(args.data_path, args.batch_size, args.eval_batch_size)
+        data = DataLM( os.path.join(args.root_path, args.data_path),
+                       args.batch_size, args.eval_batch_size)
         model = RNNVAE(args, args.enc_type, len(data.dictionary), args.emsize, args.nhid, args.lat_dim, args.nlayers,
-                       dropout=args.dropout, tie_weights=False,input_z=args.input_z, mix_unk=args.mix_unk)
+                       dropout=args.dropout, tie_weights=False, input_z=args.input_z, mix_unk=args.mix_unk)
         if args.load is not None:
-            model.load_state_dict(torch.load(args.load),strict=False)
+            model.load_state_dict(torch.load(args.load), strict=False)
         if torch.cuda.is_available():
             model = model.cuda()
         runner = Runner(args, model, data, writer)

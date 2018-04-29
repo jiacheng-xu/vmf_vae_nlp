@@ -10,7 +10,7 @@ class DataLM(object):
         self.test = self.tokenize(os.path.join(path, 'test.txt'))
         self.train = self.tokenize(os.path.join(path, 'train.txt'))  # TODO
         self.dev = self.tokenize(os.path.join(path, 'valid.txt'))
-
+        print(self.dictionary.__len__())
         self.demo_u = self.tokenize(os.path.join(path, 'test_university.txt'))
         self.demo_u = self.set_batch(self.demo_u, 1)
 

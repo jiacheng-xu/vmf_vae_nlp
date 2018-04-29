@@ -3,12 +3,13 @@ import argparse
 
 def parse_arg():
     parser = argparse.ArgumentParser(description='PyTorch VAE LSTM Language Model')
-
+    parser.add_argument('--root_path', type=str,default='/home/cc/vae_txt')
+    parser.add_argument('--exp_path', type=str, default='/home/cc/exp-nvdm')
     parser.add_argument('--data_name', type=str, default='ptb', help='name of the data corpus')
-    parser.add_argument('--data_path', type=str, default='../data/ptb', help='location of the data corpus')
+    parser.add_argument('--data_path', type=str, default='data/ptb', help='location of the data corpus')
 
     parser.add_argument('--fly', default=False, action='store_true')
-    parser.add_argument('--enc_type', type=str, default='lstm', help='lstm or bow')
+    parser.add_argument('--enc_type', type=str, default='lstm', help='lstm or gru or bow')
     parser.add_argument('--model', type=str, default='nvrnn', help='nvdm or nvrnn')
     parser.add_argument('--dist', type=str, default='vmf', help='nor or vmf or zero')
     parser.add_argument('--kappa', type=float, default=0.1)
@@ -61,5 +62,7 @@ def parse_arg():
     parser.add_argument('--replace', action='store', default=0.1, type=float,
                         help='Probability of replacing a word with a random word.')
 
+    parser.add_argument('--bi', action='store_true',default=False)
+    parser.add_argument('--tie_rnn', action='store_true',default=False)
     args = parser.parse_args()
     return args

@@ -174,7 +174,7 @@ class Runner():
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
 
-                if cur_kl < 0.1:
+                if cur_kl < 0.07:
                     raise KeyboardInterrupt
 
                 Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time,
@@ -189,7 +189,7 @@ class Runner():
                 word_cnt = 0
                 doc_cnt = 0
                 cnt = 0
-            if idx % (6 * args.log_interval) == 0 and idx > 0:
+            if idx % (4 * args.log_interval) == 0 and idx > 0:
                 self.eval_interface()
 
     def eval_interface(self):
@@ -209,8 +209,8 @@ class Runner():
         else:
             self.dead_cnt += 1
             self.args.cur_lr /= 1.1
-        if self.best_val_loss > 7.45:
-            raise KeyboardInterrupt
+        # if self.best_val_loss > 7.45:
+        #     raise KeyboardInterrupt
 
         if self.dead_cnt == 3:
             raise KeyboardInterrupt
