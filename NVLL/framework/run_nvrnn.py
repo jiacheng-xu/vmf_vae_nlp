@@ -6,7 +6,9 @@ import time
 import torch
 
 from NVLL.model.nvrnn import RNNVAE
-from NVLL.util.util import schedule, GVar,swap_by_batch, replace_by_batch
+from NVLL.util.util import schedule, GVar, swap_by_batch, replace_by_batch
+
+random.seed(2018)
 
 
 class Runner():
@@ -56,10 +58,10 @@ class Runner():
                     self.args.cur_lr /= 1.1
                 if dead_cnt == 10:
                     raise KeyboardInterrupt
-                # if epoch == 1 and math.exp(best_val_loss) >= 600:
-                #     raise KeyboardInterrupt
-                # if epoch == 8 and math.exp(best_val_loss) >= 180:
-                #     raise KeyboardInterrupt
+                    # if epoch == 1 and math.exp(best_val_loss) >= 600:
+                    #     raise KeyboardInterrupt
+                    # if epoch == 8 and math.exp(best_val_loss) >= 180:
+                    #     raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('-' * 89)
             print('Exiting from training early')
@@ -89,9 +91,9 @@ class Runner():
                     recon_loss, kl_loss, loss, math.exp(loss)))
             if writer is not None:
                 writer.add_scalars('test', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
-                                        'val_loss': loss,
-                                        'ppl': math.exp(loss)
-                                        })
+                                            'val_loss': loss,
+                                            'ppl': math.exp(loss)
+                                            })
         else:
             print('| EVAL | Recon Loss {:5.2f} | KL Loss {:5.2f} | Eval Loss {:5.2f} | Eval PPL {:8.2f} |'.format(
                 recon_loss, kl_loss, loss, math.exp(loss)))
@@ -219,7 +221,6 @@ class Runner():
                 feed = swap_by_batch(feed, self.args.swap)
             if self.args.replace > 0.00001:
                 feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
-
 
             recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
 

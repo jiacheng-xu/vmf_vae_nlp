@@ -1,5 +1,5 @@
 import random
-
+random.seed(2018)
 import torch
 
 from NVLL.distribution.gauss import Gauss
@@ -37,7 +37,7 @@ class BowVAE(torch.nn.Module):
 
         # Decoding
         self.dec_linear = torch.nn.Linear(self.n_lat, self.n_hidden)
-        self.dec_act = torch.nn.ReLU()
+        self.dec_act = torch.nn.Tanh()
 
         self.out = torch.nn.Linear(self.n_hidden, self.vocab_size)
 

@@ -6,6 +6,9 @@ from NVLL.distribution.vmf_only import vMF
 from NVLL.util.util import GVar
 from NVLL.distribution.vmf_unif import unif_vMF
 from NVLL.util.util import check_dispersion,cos
+
+numpy.random.seed(2018)
+
 class RNNVAE(nn.Module):
     """Container module with an optional encoder, a prob latent module, and a RNN decoder."""
 

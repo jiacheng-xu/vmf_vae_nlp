@@ -2,6 +2,7 @@ from collections import OrderedDict
 from operator import itemgetter
 import torch
 import random
+random.seed(2018)
 import numpy as np
 def cos(a, b):
     """

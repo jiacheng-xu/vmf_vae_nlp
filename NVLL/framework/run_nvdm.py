@@ -4,15 +4,17 @@ Runner is responsible for basically everything bef, during and after training an
 import logging
 import math
 import time
-
+import os
 import torch
 
 from NVLL.data.ng import DataNg
 
 # from NVLL.model.nvdm import BowVAE
-from NVLL.model.nvdm_v2 import BowVAE
+from NVLL.model.nvdm import BowVAE
 # from NVLL.util.util import schedule, GVar, maybe_cuda
 from NVLL.util.util import schedule, GVar
+import random
+random.seed(2018)
 
 
 class Runner():
@@ -65,6 +67,10 @@ class Runner():
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test[0], self.data.test[1], self.data.test_batches)
         Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
+
+        os.rename(self.args.save_name + '.model', str(test_loss)+'_' +self.args.save_name + '.model')
+        os.rename(self.args.save_name + '.args', str(test_loss) + '_' + self.args.save_name + '.args')
+
         self.writer.close()
 
     @staticmethod
@@ -126,6 +132,7 @@ class Runner():
         word_cnt = 0
         doc_cnt = 0
         cnt = 0
+        random.shuffle(train_batches)
         for idx, batch in enumerate(train_batches):
             self.optim.zero_grad()
 
@@ -174,7 +181,7 @@ class Runner():
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
 
-                if cur_kl < 0.07:
+                if cur_kl < 0.02:
                     raise KeyboardInterrupt
 
                 Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time,
@@ -212,7 +219,7 @@ class Runner():
         # if self.best_val_loss > 7.45:
         #     raise KeyboardInterrupt
 
-        if self.dead_cnt == 3:
+        if self.dead_cnt == 5:
             raise KeyboardInterrupt
 
     def evaluate(self, args, model, corpus_dev, corpus_dev_cnt, dev_batches):

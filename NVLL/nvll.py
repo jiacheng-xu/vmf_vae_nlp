@@ -53,7 +53,7 @@ def main():
 
         from NVLL.data.ng import DataNg
         # from NVLL.model.nvdm import BowVAE
-        from NVLL.model.nvdm_v2 import BowVAE
+        from NVLL.model.nvdm import BowVAE
         from NVLL.framework.run_nvdm import Runner
 
         data = DataNg(args)
