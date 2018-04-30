@@ -83,7 +83,8 @@ class Runner():
             print(
                 '| End of training | Recon Loss {:5.2f} | KL Loss {:5.2f} | Test Loss {:5.2f} | Test PPL {:8.2f} |'.format(
                     recon_loss, kl_loss, loss, math.exp(loss)))
-            writer.add_scalars('test', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
+            if writer is not None:
+                writer.add_scalars('test', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
                                         'val_loss': loss,
                                         'ppl': math.exp(loss)
                                         })

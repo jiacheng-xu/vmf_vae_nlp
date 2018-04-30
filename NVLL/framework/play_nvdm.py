@@ -13,6 +13,7 @@ from NVLL.framework.run_nvdm import Runner
 from NVLL.model.nvdm import BowVAE
 from NVLL.util.util import GVar
 
+random.seed(2018)
 
 class PlayNVDM():
     def __init__(self, load_path, load_name, data_path):
@@ -40,10 +41,11 @@ class PlayNVDM():
     def eva(self):
         # Load the best saved model.
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, self.model,
-                                                    self.data.test)
-        Runner.log_eval(cur_loss, cur_kl, test_loss, True)
+                                                    self.data.test[0],
+                                                    self.data.test[1], self.data.test_batches)
+        Runner.log_eval(None, None, cur_loss, cur_kl, test_loss, True)
 
-    def evaluate(self, args, model, dev_batches):
+    def evaluate(self, args, model, corpus_dev, corpus_dev_cnt, dev_batches):
         """
         Standard evaluation function on dev or test set.
         :param args:
@@ -54,34 +56,42 @@ class PlayNVDM():
 
         # Turn on training mode which enables dropout.
         model.eval()
-        model.FLAG_train = False
 
         acc_loss = 0
         acc_kl_loss = 0
-        acc_total_loss = 0
-        all_cnt = 0
+        acc_real_loss = 0
+        word_cnt = 0
+        doc_cnt = 0
         start_time = time.time()
+        ntokens = self.data.vocab_size
 
         for idx, batch in enumerate(dev_batches):
-            feed = self.data.get_feed(batch)
-            target = GVar(batch)
-            seq_len, batch_sz = batch.size()
-            tup, kld, decoded = model(feed, target)
+            data_batch, count_batch = self.data.fetch_data(
+                corpus_dev, corpus_dev_cnt, batch, ntokens)
 
-            flatten_decoded = decoded.view(-1, self.model.ntoken)
-            flatten_target = target.view(-1)
-            loss = self.criterion(flatten_decoded, flatten_target)  # batch_sz * seq, loss
-            sum_kld = torch.sum(kld)
-            total_loss = loss + sum_kld * self.args.kl_weight
+            data_batch = GVar(torch.FloatTensor(data_batch))
 
-            acc_total_loss += loss.data * seq_len * batch_sz + sum_kld.data
-            acc_loss += loss.data * seq_len * batch_sz
-            acc_kl_loss += sum_kld.data
-            all_cnt += batch_sz * seq_len
+            recon_loss, kld, aux_loss, tup, vecs = model(data_batch)
+
+            count_batch = GVar(torch.FloatTensor(count_batch))
+            # real_loss = torch.div((recon_loss + kld).data, count_batch)
+            doc_num = len(count_batch)
+            # remove nan
+            # for n in real_loss:
+            #     if n == n:
+            #         acc_real_loss += n
+            # acc_real_ppl += torch.sum(real_ppl)
+
+            acc_loss += torch.sum(recon_loss).data[0]  #
+            acc_kl_loss += torch.sum(kld).data[0]
+            count_batch = count_batch + 1e-12
+
+            word_cnt += torch.sum(count_batch)
+            doc_cnt += doc_num
 
         # word ppl
-        cur_loss = acc_loss[0] / all_cnt  # word loss
-        cur_kl = acc_kl_loss[0] / all_cnt
+        cur_loss = acc_loss / word_cnt  # word loss
+        cur_kl = acc_kl_loss / word_cnt
         # cur_real_loss = acc_real_loss / doc_cnt
         cur_real_loss = cur_loss + cur_kl
         elapsed = time.time() - start_time
@@ -216,12 +226,12 @@ class visual_vmf():
 
 
 if __name__ == '__main__':
-    player = PlayNVDM('/home/jcxu/vae_txt/NVLL',
-                      'Data20news_Distnor_Modelnvdm_Emb400_Hid400_lat50_lr0.0001_drop0.2_kappa0.1'
+    player = PlayNVDM('/home/jcxu/vae_txt/TrainedModels',
+                      '831Data20ng_Distvmf_Modelnvdm_Emb400_Hid800_lat50_lr0.005_drop0.0_kappa100.0_auxw0.0001_normfFalse'
                       , '/home/jcxu/vae_txt/data/20news')
-    # player.eva()
+    player.eva()
     # glob_iter = self.train_epo(self.args, self.model, self.data.train_batches, epoch,
     #                            epoch_start_time, glob_iter)
-    player.play_eval(player.args, player.model, player.data.test_batches, 0, 0, 0)
-
-    os.chdir('/home/jcxu/vae_txt/NVLL/framework')
+    # player.play_eval(player.args, player.model, player.data.test_batches, 0, 0, 0)
+    #
+    # os.chdir('/home/jcxu/vae_txt/NVLL/framework')
