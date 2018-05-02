@@ -9,7 +9,7 @@ import numpy
 import scipy
 import torch
 
-from  NVLL.data.lm import DataLM
+from NVLL.data.lm import DataLM
 from NVLL.framework.run_nvrnn import Runner
 from NVLL.model.nvrnn import RNNVAE
 from NVLL.util.util import GVar,swap_by_batch,replace_by_batch
@@ -46,7 +46,8 @@ class PlayNVRNN():
         model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary), self.args.emsize,
                        self.args.nhid, self.args.lat_dim, self.args.nlayers,
                        dropout=self.args.dropout, tie_weights=self.args.tied,
-                       input_z=self.args.input_z, mix_unk=self.args.mix_unk)
+                       input_z=self.args.input_z, mix_unk=self.args.mix_unk,condition=(self.args.cd_bit or self.args.cd_bow),
+                       input_cd_bow=self.args.cd_bow, input_cd_bit=self.args.cd_bit)
         model.load_state_dict(torch.load(os.path.join(path, name + '.model')))
         model = model.cuda()
         return model
@@ -304,21 +305,25 @@ def compute_cos(files):
             brec.append(comp_cos(aa, B[jdx]))
     print(sum(brec) / float(len(brec)))
 if __name__ == '__main__':
-    bag = []
-    for swap in [0.,0.25,0.5,1]:
-        for replace in [0.,0.25,0.5,1]:
-            for unk in [0.,0.25,0.5,1]:
-
-
-                player = PlayNVRNN('/backup2/jcxu/exp-nvrnn',
-                                   'Dataptb_Distnor_Modelnvrnn_Emb100_Hid400_lat32_lr0.1_drop0.7_kappa16.0_auxw0.0_normfFalse_nlay1_mixunk1.0_inpzTrue'
-                                   , '/home/jcxu/vae_txt/data/ptb',swap=swap,replace=replace,mix_unk=unk)
-                cur_loss, cur_kl, test_loss = player.eva()
-                s = '{}\t{}\t{}\t{}\t{}\t{}'.format(swap, replace, unk, cur_loss,cur_kl,cur_loss)
-                bag.append(s)
-                print(bag)
-    for b in bag:
-        print(b)
+    # bag = []
+    # for swap in [0.,0.25,0.5,1]:
+    #     for replace in [0.,0.25,0.5,1]:
+    #         for unk in [0.,0.25,0.5,1]:
+    #
+    #
+    #             player = PlayNVRNN('/backup2/jcxu/exp-nvrnn',
+    #                                'Dataptb_Distnor_Modelnvrnn_Emb100_Hid400_lat32_lr0.1_drop0.7_kappa16.0_auxw0.0_normfFalse_nlay1_mixunk1.0_inpzTrue'
+    #                                , '/home/jcxu/vae_txt/data/ptb',swap=swap,replace=replace,mix_unk=unk)
+    #             cur_loss, cur_kl, test_loss = player.eva()
+    #             s = '{}\t{}\t{}\t{}\t{}\t{}'.format(swap, replace, unk, cur_loss,cur_kl,cur_loss)
+    #             bag.append(s)
+    #             print(bag)
+    # for b in bag:
+    #     print(b)
+    player = PlayNVRNN('/backup2/jcxu/exp-nvrnn',
+                       'Dataptb_Distvmf_Modelnvrnn_Emb100_Hid800_lat32_lr10.0_drop0.5_kappa64.0_auxw0.01_normfFalse_nlay1_mixunk1.0_inpzTrue'
+                       , '/home/jcxu/vae_txt/data/ptb', swap=0, replace=0, mix_unk=1)
+    cur_loss, cur_kl, test_loss = player.eva()
     # player.play_eval(player.args, player.model, player.data.demo_h, 0, 0, 0)
 
     # os.chdir('/home/jcxu/vae_txt/NVLL/framework')

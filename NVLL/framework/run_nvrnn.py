@@ -7,9 +7,9 @@ import torch
 
 from NVLL.model.nvrnn import RNNVAE
 from NVLL.util.util import schedule, GVar, swap_by_batch, replace_by_batch
-
+from NVLL.util.gpu_flag import GPU_FLAG
 random.seed(2018)
-
+import os
 
 class Runner():
     def __init__(self, args, model, data, writer):
@@ -26,37 +26,37 @@ class Runner():
             self.optim = torch.optim.Adam(model.parameters(), lr=self.args.lr)
         else:
             raise NotImplementedError
+        self.glob_iter = 0
+        self.dead_cnt = 0
+        self.best_val_loss = None
 
     def start(self):
         print("Model {}".format(self.model))
         logging.info("Model {}".format(self.model))
-        best_val_loss = None
-        glob_iter = 0
-        dead_cnt = 0
         try:
             for epoch in range(1, self.args.epochs + 1):
                 self.args.kl_weight = schedule(epoch)
 
                 epoch_start_time = time.time()
 
-                glob_iter = self.train_epo(self.args, self.model, self.data.train, epoch,
-                                           epoch_start_time, glob_iter)
+                self.train_epo(self.args, self.model, self.data.train, epoch,
+                                           epoch_start_time, self.glob_iter)
 
                 cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
                                                            self.data.dev)
                 val_loss = float(val_loss)
-                Runner.log_eval(self.writer, glob_iter, cur_loss, cur_kl, val_loss, False)
-                if not best_val_loss or val_loss < best_val_loss:
+                Runner.log_eval(self.writer, self.glob_iter, cur_loss, cur_kl, val_loss, False)
+                if not self.best_val_loss or val_loss < self.best_val_loss:
                     with open(self.args.save_name + ".model", 'wb') as f:
                         torch.save(self.model.state_dict(), f)
                     with open(self.args.save_name + ".args", 'wb') as f:
                         torch.save(self.args, f)
-                    best_val_loss = val_loss
-                    dead_cnt = 0
+                    self.best_val_loss = val_loss
+                    self.dead_cnt = 0
                 else:
-                    dead_cnt += 1
+                    self.dead_cnt += 1
                     self.args.cur_lr /= 1.1
-                if dead_cnt == 10:
+                if self.dead_cnt == 3:
                     raise KeyboardInterrupt
                     # if epoch == 1 and math.exp(best_val_loss) >= 600:
                     #     raise KeyboardInterrupt
@@ -71,15 +71,22 @@ class Runner():
         model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary), self.args.emsize,
                        self.args.nhid, self.args.lat_dim, self.args.nlayers,
                        dropout=self.args.dropout, tie_weights=self.args.tied,
-                       input_z=self.args.input_z, mix_unk=self.args.mix_unk)
+                       input_z=self.args.input_z, mix_unk=self.args.mix_unk,
+                       condition=(self.args.cd_bit or self.args.cd_bow),
+                       input_cd_bow=self.args.cd_bow, input_cd_bit=self.args.cd_bit)
         model.load_state_dict(torch.load(self.args.save_name + '.model'), strict=False)
-        model = model.cuda()
+        if torch.cuda.is_available() and GPU_FLAG:
+            model = model.cuda()
         model = model.eval()
         print(model)
         print(self.args)
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test)
         Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
+
+        os.rename(self.args.save_name + '.model',  self.args.save_name + '_'+ str(test_loss)  +'.model')
+        os.rename(self.args.save_name + '.args',  self.args.save_name + '_'+ str(test_loss) +'.args')
+
         self.writer.close()
 
     @staticmethod
@@ -110,9 +117,9 @@ class Runner():
                     val_loss):
         try:
             print(
-                '| epoch {:3d} | time: {:5.2f}s | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
+                '| epoch {:3d} | time: {:5.2f}s | Iter: {} | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
                 'loss: {:5.2f} | Total Loss {:5.2f} | PPL {:8.2f}'.format(
-                    epoch, (time.time() - epoch_start_time), args.kl_weight, cur_avg_cos, cur_avg_norm,
+                    epoch, (time.time() - epoch_start_time),glob_iter, args.kl_weight, cur_avg_cos, cur_avg_norm,
                     recon_loss, kl_loss, aux_loss, val_loss, math.exp(val_loss)))
             if writer is not None:
                 writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight, 'cur_avg_cos': cur_avg_cos,
@@ -146,6 +153,13 @@ class Runner():
         for idx, batch in enumerate(train_batches):
             self.optim.zero_grad()
             seq_len, batch_sz = batch.size()
+            if self.model.condition:
+                seq_len -= 1
+                bit = batch[0,:]
+                batch = batch[1:, :]
+                bit = GVar(bit)
+            else:
+                bit = None
             feed = self.data.get_feed(batch)
 
             if self.args.swap > 0.00001:
@@ -153,11 +167,11 @@ class Runner():
             if self.args.replace > 0.00001:
                 feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
 
-            glob_iter += 1
+            self.glob_iter += 1
 
             target = GVar(batch)
 
-            recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
+            recon_loss, kld, aux_loss, tup, vecs = model(feed, target, bit)
             total_loss = recon_loss * seq_len + torch.mean(kld) * self.args.kl_weight + torch.mean(
                 aux_loss) * args.aux_weight
 
@@ -188,12 +202,11 @@ class Runner():
                 cur_avg_cos = acc_avg_cos[0] / cnt
                 cur_avg_norm = acc_avg_norm[0] / cnt
                 cur_real_loss = cur_loss + cur_kl
-                Runner.log_instant(self.writer, self.args, glob_iter, epo, start_time, cur_avg_cos, cur_avg_norm,
+                Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time, cur_avg_cos, cur_avg_norm,
                                    cur_loss
                                    , cur_kl, cur_aux_loss,
                                    cur_real_loss)
 
-        return glob_iter
 
     def evaluate(self, args, model, dev_batches):
 
@@ -213,16 +226,27 @@ class Runner():
         start_time = time.time()
 
         for idx, batch in enumerate(dev_batches):
-            feed = self.data.get_feed(batch)
-            target = GVar(batch)
+
             seq_len, batch_sz = batch.size()
+            if self.model.condition:
+                seq_len -= 1
+                bit = batch[0,:]
+                batch = batch[1:, :]
+                bit = GVar(bit)
+            else:
+                bit = None
+            feed = self.data.get_feed(batch)
 
             if self.args.swap > 0.00001:
                 feed = swap_by_batch(feed, self.args.swap)
             if self.args.replace > 0.00001:
                 feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
 
-            recon_loss, kld, aux_loss, tup, vecs = model(feed, target)
+
+            target = GVar(batch)
+
+            recon_loss, kld, aux_loss, tup, vecs = model(feed, target, bit)
+
 
             acc_loss += recon_loss.data * seq_len * batch_sz
             acc_kl_loss += torch.sum(kld).data

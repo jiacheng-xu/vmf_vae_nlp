@@ -3,17 +3,18 @@ Runner is responsible for basically everything bef, during and after training an
 """
 import logging
 import math
-import time
 import os
+import random
+import time
+
 import torch
-
+from NVLL.util.gpu_flag import GPU_FLAG
 from NVLL.data.ng import DataNg
-
 # from NVLL.model.nvdm import BowVAE
 from NVLL.model.nvdm import BowVAE
 # from NVLL.util.util import schedule, GVar, maybe_cuda
 from NVLL.util.util import schedule, GVar
-import random
+
 random.seed(2018)
 
 
@@ -60,7 +61,8 @@ class Runner():
                        n_sample=3, dist=self.args.dist)
         model.load_state_dict(torch.load(self.args.save_name + '.model'),
                               strict=False)
-        model = model.cuda()
+        if torch.cuda.is_available() and GPU_FLAG:
+            model = model.cuda()
         print(model)
         print(self.args)
         model = model.eval()
@@ -68,8 +70,8 @@ class Runner():
                                                     self.data.test[0], self.data.test[1], self.data.test_batches)
         Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
 
-        os.rename(self.args.save_name + '.model', str(test_loss)+'_' +self.args.save_name + '.model')
-        os.rename(self.args.save_name + '.args', str(test_loss) + '_' + self.args.save_name + '.args')
+        os.rename(self.args.save_name + '.model',  self.args.save_name + '_' + str(test_loss.data[0]) +'.model')
+        os.rename(self.args.save_name + '.args',  self.args.save_name + '_' + str(test_loss.data[0])  +'.args')
 
         self.writer.close()
 
@@ -85,12 +87,13 @@ class Runner():
                     recon_loss, kl_loss, loss, math.exp(loss)))
             if writer is not None:
                 writer.add_scalars('test', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
-                                        'val_loss': loss,
-                                        'ppl': math.exp(loss)
-                                        })
+                                            'val_loss': loss,
+                                            'ppl': math.exp(loss)
+                                            })
         else:
-            print('| EVAL | Recon Loss {:5.2f} | KL Loss {:5.2f} | Eval Loss {:5.2f} | Eval PPL {:8.2f} |'.format(
-                recon_loss, kl_loss, loss, math.exp(loss)))
+            print(
+                '| EVAL | Step: {} | Recon Loss {:5.2f} | KL Loss {:5.2f} | Eval Loss {:5.2f} | Eval PPL {:8.2f} |'.format(
+                    glob_iter, recon_loss, kl_loss, loss, math.exp(loss)))
             writer.add_scalars('eval', {'recon_loss': recon_loss, 'kl_loss': kl_loss,
                                         'val_loss': loss,
                                         'ppl': math.exp(loss)
@@ -182,7 +185,7 @@ class Runner():
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
 
-                if cur_kl < 0.02:
+                if cur_kl < 0.02 or cur_kl> 0.8:
                     raise KeyboardInterrupt
 
                 Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time,
@@ -217,6 +220,8 @@ class Runner():
         else:
             self.dead_cnt += 1
             self.args.cur_lr /= 1.1
+        if self.glob_iter > 1000 and val_loss > 7.2:
+            raise KeyboardInterrupt
         # if self.best_val_loss > 7.45:
         #     raise KeyboardInterrupt
 

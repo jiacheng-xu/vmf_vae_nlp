@@ -5,38 +5,36 @@ from NVLL.util.util import GVar
 
 
 class DataLM(object):
-    def __init__(self, path, batch_sz, eval_batch_sz):
+    def __init__(self, path, batch_sz, eval_batch_sz, condition=False):
         self.dictionary = Dictionary()
-        self.test = self.tokenize(os.path.join(path, 'test.txt'))
-        self.train = self.tokenize(os.path.join(path, 'train.txt'))  # TODO
-        self.dev = self.tokenize(os.path.join(path, 'valid.txt'))
+        self.test = self.tokenize(os.path.join(path, 'test.txt'), condition)
+        self.train = self.tokenize(os.path.join(path, 'train.txt'), condition)
+        self.dev = self.tokenize(os.path.join(path, 'valid.txt'), condition)
         print(self.dictionary.__len__())
-        self.demo_u = self.tokenize(os.path.join(path, 'test_university.txt'))
-        self.demo_u = self.set_batch(self.demo_u, 1)
-
-        self.demo_h = self.tokenize(os.path.join(path, 'test_hotel.txt'))
-        self.demo_h = self.set_batch(self.demo_h, 1)
-
-        self.demo_e  = self.tokenize(os.path.join(path, 'test_european.txt'))
-        self.demo_e = self.set_batch(self.demo_e, 1)
+        # self.demo_u = self.tokenize(os.path.join(path, 'test_university.txt'))
+        # self.demo_u = self.set_batch(self.demo_u, 1)
+        #
+        # self.demo_h = self.tokenize(os.path.join(path, 'test_hotel.txt'))
+        # self.demo_h = self.set_batch(self.demo_h, 1)
+        #
+        # self.demo_e  = self.tokenize(os.path.join(path, 'test_european.txt'))
+        # self.demo_e = self.set_batch(self.demo_e, 1)
 
         self.dictionary.save()
 
         self.dev = self.set_batch(self.dev, eval_batch_sz)
         self.test = self.set_batch(self.test, eval_batch_sz)
-        # self.train = self.dev
         self.train = self.set_batch(self.train, batch_sz)  # TODO
 
 
-
-    def tokenize(self, path):
-
+    def tokenize(self, path,
+                 condition=False):
         """Tokenizes a text file."""
         assert os.path.exists(path)
         bag = []
         # Add words to the dictionary
         len_stat = []
-        with open(path, 'r') as f:
+        with open(path, 'r',errors='ignore') as f:
             for line in f:
                 words = line.split()
                 if len(words) < 1:
@@ -45,12 +43,14 @@ class DataLM(object):
                 len_stat.append(len(words))
                 # tokens += len(words)
                 tmp_seq = []
+                if condition:
+                    tmp_seq.append(int(words[0]))
+                    assert 5 > int(words[0]) >= 0
+                    words=words[1:]
                 for word in words:
                     self.dictionary.add_word(word)
                     tmp_seq.append(self.dictionary.word2idx[word])
                 tmp_seq = torch.LongTensor(tmp_seq)
-                # label = None
-                # bag.append([tmp_seq, label])
                 bag.append(tmp_seq)
 
         bag = sorted(bag, key=lambda sample: sample.size()[0], reverse=True)

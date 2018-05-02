@@ -1,37 +1,57 @@
+import numpy
 import torch
 import torch.nn as nn
-import numpy
+
 from NVLL.distribution.gauss import Gauss
 from NVLL.distribution.vmf_only import vMF
-from NVLL.util.util import GVar
 from NVLL.distribution.vmf_unif import unif_vMF
-from NVLL.util.util import check_dispersion,cos
+from NVLL.util.util import GVar
+from NVLL.util.util import check_dispersion
 
 numpy.random.seed(2018)
+
 
 class RNNVAE(nn.Module):
     """Container module with an optional encoder, a prob latent module, and a RNN decoder."""
 
     def __init__(self, args, enc_type, ntoken, ninp, nhid,
-                 lat_dim, nlayers, dropout=0.5, tie_weights=False, input_z=False, mix_unk=0):
+                 lat_dim, nlayers, dropout=0.5, tie_weights=False,
+                 input_z=False, mix_unk=0, condition=False, input_cd_bow=0, input_cd_bit=0):
+        assert (not condition) or (condition and (input_cd_bow > 1 or input_cd_bit > 1))
+        assert type(input_cd_bit) == int and input_cd_bit >= 0
+        assert type(input_cd_bow) == int and input_cd_bow >= 0
 
         super(RNNVAE, self).__init__()
         self.FLAG_train = True
         self.args = args
         self.enc_type = enc_type
-        self.bi = args.bi
+        try:
+            self.bi = args.bi
+        except AttributeError:
+            self.bi = True
+
+        self.input_z = input_z
+        self.condition = condition
+        self.input_cd_bow = input_cd_bow
+        self.input_cd_bit = input_cd_bit
+
         self.lat_dim = lat_dim
         self.nhid = nhid
         self.nlayers = nlayers  # layers for decoding part
         self.ninp = ninp
         self.ntoken = ntoken
         self.dist_type = args.dist  # Gauss or vMF = normal vae;
-        # zero = no encoder and VAE, use 0 as start of decoding; sph = encode word embedding as bow and project to a unit sphere
+        # zero = no encoder and VAE, use 0 as start of decoding;
+        #  sph = encode word embedding as bow and project to a unit sphere
 
 
         # VAE shared param
         self.drop = nn.Dropout(dropout)  # Need explicit dropout
         self.emb = nn.Embedding(ntoken, ninp)
+        if input_cd_bit > 1:
+            self.emb_bit = nn.Embedding(5, input_cd_bit)
+        if input_cd_bow > 1:
+            self.nn_bow = nn.Linear(ninp, input_cd_bow)
 
         # VAE decoding part
         self.decoder_out = nn.Linear(nhid, ntoken)
@@ -39,13 +59,18 @@ class RNNVAE(nn.Module):
         # VAE recognition part
         if self.dist_type == 'nor' or 'vmf' or 'sph' or 'unifvmf':
             _factor = 1
+            _inp_dim = ninp
+            if input_cd_bit>1:
+                _inp_dim += int(input_cd_bit)
             if enc_type == 'lstm' or 'gru':
                 if enc_type == 'lstm':
-                    _factor*=2
-                    self.enc_rnn = nn.LSTM(ninp, nhid, 1, bidirectional=args.bi, dropout=dropout)
-                elif enc_type =='gru':
-                    self.enc_rnn = nn.GRU(ninp, nhid, 1, bidirectional=args.bi, dropout=dropout)
-                if args.bi:
+                    _factor *= 2
+                    self.enc_rnn = nn.LSTM(_inp_dim, nhid, 1, bidirectional=self.bi, dropout=dropout)
+                elif enc_type == 'gru':
+                    self.enc_rnn = nn.GRU(_inp_dim, nhid, 1, bidirectional=self.bi, dropout=dropout)
+                else:
+                    raise  NotImplementedError
+                if self.bi:
                     _factor *= 2
 
                 self.hid4_to_lat = nn.Linear(_factor * nhid, nhid)
@@ -56,7 +81,7 @@ class RNNVAE(nn.Module):
             else:
                 raise NotImplementedError
         elif self.dist_type == 'zero':
-            self.enc = self.baseline_function
+            pass
         else:
             raise NotImplementedError
 
@@ -76,17 +101,22 @@ class RNNVAE(nn.Module):
         else:
             raise NotImplementedError
 
-        self.input_z = input_z
         self.mix_unk = mix_unk
 
         # LSTM
-        self.z_to_h = nn.Linear(lat_dim, nhid * nlayers)  # TODO
+        self.z_to_h = nn.Linear(lat_dim, nhid * nlayers)
         self.z_to_c = nn.Linear(lat_dim, nhid * nlayers)
 
+        _dec_rnn_inp_dim = ninp
         if input_z:
-            self.decoder_rnn = nn.LSTM(ninp + lat_dim, nhid, nlayers, dropout=dropout)
-        else:
-            self.decoder_rnn = nn.LSTM(ninp, nhid, nlayers, dropout=dropout)
+            _dec_rnn_inp_dim += lat_dim
+        if input_cd_bit > 1:
+            _dec_rnn_inp_dim += int(input_cd_bit)
+        if input_cd_bow > 1:
+            _dec_rnn_inp_dim += int(input_cd_bow)
+
+        self.decoder_rnn = nn.LSTM(_dec_rnn_inp_dim, nhid, nlayers, dropout=dropout)
+
         if tie_weights:
             if nhid != ninp:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
@@ -102,21 +132,24 @@ class RNNVAE(nn.Module):
                 concated_h_c = torch.cat((h_n[0], h_n[1], c_n[0], c_n[1]), dim=1)
             else:
                 concated_h_c = torch.cat((h_n[0], c_n[0]), dim=1)
-        elif self.enc_type =='gru':
+        elif self.enc_type == 'gru':
             output, h_n = self.enc_rnn(x)
             if self.bi:
                 concated_h_c = torch.cat((h_n[0], h_n[1]), dim=1)
             else:
                 concated_h_c = h_n[0]
-        # H = concated_h_c.permute(1, 0, 2).contiguous().view(batch_sz, 4 * self.nhid)
+        else:
+            raise NotImplementedError
         return self.hid4_to_lat(concated_h_c)
 
-    def baseline_function(self, x):
-        seq_len, batch_sz = x.size()
-        return torch.transpose(x, 1, 0)
-
     def dropword(self, emb, drop_rate=0.3):
-
+        """
+        Mix the ground truth word with UNK.
+        If drop rate = 1, no ground truth info is used. (Fly mode)
+        :param emb:
+        :param drop_rate: 0 - no drop; 1 - full drop, all UNK
+        :return: mixed embedding
+        """
         UNKs = GVar(torch.ones(emb.size()[0], emb.size()[1]).long() * 2)
         UNKs = self.emb(UNKs)
         # print(UNKs, emb)
@@ -125,52 +158,76 @@ class RNNVAE(nn.Module):
         emb = emb * (1 - masks) + UNKs * masks
         return emb
 
-    def forward(self, inp, target):
+    def forward(self, inp, target, bit=None):
         """
         Forward with ground truth (maybe mixed with UNK) as input.
         :param inp:  seq_len, batch_sz
         :param target: seq_len, batch_sz
+        :param bit: 1, batch_sz
         :return:
         """
         seq_len, batch_sz = inp.size()
         emb = self.drop(self.emb(inp))
-        h = self.forward_enc(emb)
-        tup, kld, vecs = self.forward_build_lat(h)  # batchsz, lat dim
 
+        if self.input_cd_bow > 1:
+            bow = self.enc_bow(emb)
+        else:
+            bow = None
+        if self.input_cd_bit > 1:
+            bit = self.enc_bit(bit)
+        else:
+            bit = None
+
+        h = self.forward_enc(emb, bit)
+        tup, kld, vecs = self.forward_build_lat(h)  # batchsz, lat dim
 
         if 'redundant_norm' in tup:
             aux_loss = tup['redundant_norm'].view(batch_sz)
         else:
             aux_loss = GVar(torch.zeros(batch_sz))
         if 'norm' not in tup:
-            tup['norm'] =  GVar(torch.zeros(batch_sz))
+            tup['norm'] = GVar(torch.zeros(batch_sz))
         # stat
         avg_cos = check_dispersion(vecs)
         avg_norm = torch.mean(tup['norm'])
         tup['avg_cos'] = avg_cos
         tup['avg_norm'] = avg_norm
 
-        vec = torch.mean(vecs,dim=0)
-        if self.args.fly:
-            decoded = self.forward_decode_fly(emb, vec)
-        else:
-            decoded = self.forward_decode_ground(emb, vec)  # (seq_len, batch, dict sz)
+        vec = torch.mean(vecs, dim=0)
+
+        decoded = self.forward_decode_ground(emb, vec, bit, bow)  # (seq_len, batch, dict sz)
 
         flatten_decoded = decoded.view(-1, self.ntoken)
         flatten_target = target.view(-1)
         loss = self.criterion(flatten_decoded, flatten_target)
         return loss, kld, aux_loss, tup, vecs
 
-    def forward_fly(self, inp, target):
-        pass
+    def enc_bit(self, bit):
+        if self.input_cd_bit > 1:
+            return self.emb_bit(bit)
+        else:
+            return None
 
-    def forward_enc(self, inp):
+    def enc_bow(self, emb):
+        if self.input_cd_bow > 1:
+            x = self.nn_bow(torch.mean(emb,dim=0))
+            return x
+        else:
+            return None
+
+    def forward_enc(self, inp, bit=None):
         """
         Given sequence, encode and yield a representation with hid_dim
         :param inp:
         :return:
         """
+        seq_len, batch_sz = inp.size()[0:2]
         # emb = self.drop(self.emb(inp))  # seq, batch, inp_dim
+        if self.dist_type =='zero':
+            return torch.zeros(batch_sz)
+        if bit is not None:
+            bit = bit.unsqueeze(0).expand(seq_len,batch_sz,-1)
+            inp = torch.cat([inp, bit], dim=2)
         h = self.enc(inp)
         return h
 
@@ -182,31 +239,31 @@ class RNNVAE(nn.Module):
         """
         # hidden: batch_sz, nhid
         if self.args.dist == 'nor':
-            tup, kld, out = self.dist.build_bow_rep(hidden, 1)  # 2 for bidirect, 2 for h and
-
+            tup, kld, out = self.dist.build_bow_rep(hidden, 3)  # 2 for bidirect, 2 for h and
         elif self.args.dist == 'vmf':
             tup, kld, out = self.dist.build_bow_rep(hidden, 3)
         elif self.args.dist == 'unifvmf':
             tup, kld, out = self.dist.build_bow_rep(hidden, 3)
-
         elif self.args.dist == 'sph':
             norms = torch.norm(hidden, p=2, dim=1, keepdim=True)
             out = hidden / norms
             tup = {}
             kld = GVar(torch.zeros(1))
         elif self.args.dist == 'zero':
-            out = GVar(torch.zeros(hidden.size()[0], self.lat_dim))
+            out = GVar(torch.zeros(1, hidden.size()[0], self.lat_dim))
             tup = {}
             kld = GVar(torch.zeros(1))
         else:
             raise NotImplementedError
         return tup, kld, out
 
-    def forward_decode_ground(self, emb, lat_code):
+    def forward_decode_ground(self, emb, lat_code, bit=None, bow=None):
         """
 
         :param emb: seq, batch, ninp
         :param lat_code: batch, nlat
+        :param bit:
+        :param bow:
         :return:
         """
 
@@ -214,11 +271,19 @@ class RNNVAE(nn.Module):
 
         # Dropword
         if self.mix_unk > 0.001:
-            emb = self.dropword(emb,self.mix_unk)
+            emb = self.dropword(emb, self.mix_unk)
 
         if self.input_z:
             lat_to_cat = lat_code.unsqueeze(0).expand(seq_len, batch_sz, -1)
             emb = torch.cat([emb, lat_to_cat], dim=2)
+
+        if self.input_cd_bow > 1:
+            bow = bow.unsqueeze(0).expand(seq_len, batch_sz, -1)
+            emb = torch.cat([emb, bow], dim=2)
+
+        if self.input_cd_bit > 1:
+            bit = bit.unsqueeze(0).expand(seq_len, batch_sz, -1)
+            emb = torch.cat([emb, bit], dim=2)
 
         # convert z to init h and c
         # (num_layers * num_directions, batch, hidden_size)
@@ -230,31 +295,6 @@ class RNNVAE(nn.Module):
         decoded = self.decoder_out(output.view(output.size(0) * output.size(1), output.size(2)))
         decoded = decoded.view(output.size(0), output.size(1), decoded.size(1))
         return decoded
-
-    def forward_decode_fly(self, emb, lat_code):
-        seq_len, batch_sz, _ = emb.size()
-        outputs_prob = GVar(torch.FloatTensor(seq_len, batch_sz, self.ntoken))
-        outputs = torch.LongTensor(seq_len, batch_sz)
-
-        sos = GVar(torch.ones(batch_sz).long())     # sos id=1
-        unk = GVar(torch.ones(batch_sz).long()) * 2 # unk id=2
-
-        emb_t = self.drop(self.encoder(unk)).unsqueeze(0)
-        emb_0 = self.drop(self.encoder(sos)).unsqueeze(0)
-
-        if self.input_z:
-            # emb_t_comb = torch.cat([emb_t, lat_to_cat], dim=2)
-            # emt_0_comb = torch.cat([emb_0, lat_to_cat], dim=2)
-            pass
-
-
-    def reparameterize(self, mu, logvar):
-        if self.training:
-            std = logvar.mul(0.5).exp_()
-            eps = GVar(std.data.new(std.size()).normal_())
-            return eps.mul(std).add_(mu)
-        else:
-            return mu
 
     def blstm_enc(self, input):
         """
@@ -306,68 +346,6 @@ class RNNVAE(nn.Module):
             return self.fc(x)
         else:
             raise NotImplementedError
-
-
-    def forward_decode(self, args, input, ntokens):
-        """
-
-        :param args:
-        :param input: LongTensor [seq_len, batch_sz]
-        :param ntokens:
-        :return:
-            outputs_prob:   Var         seq_len, batch_sz, ntokens
-            outputs:        LongTensor  seq_len, batch_sz
-            mu, logvar
-        """
-        seq_len = input.size()[0]
-        batch_sz = input.size()[1]
-
-        emb, lat, mu, logvar = self.blstm_enc(input)
-        # emb: seq_len, batchsz, hid_dim
-        # hidden: ([2(nlayers),10(batchsz),200],[])
-
-        outputs_prob = GVar(torch.FloatTensor(seq_len, batch_sz, ntokens))
-        if args.cuda:
-            outputs_prob = outputs_prob.cuda()
-
-        outputs = torch.LongTensor(seq_len, batch_sz)
-
-        # First time step sos
-        sos = GVar(torch.ones(batch_sz).long())
-        unk = GVar(torch.ones(batch_sz).long()) * 2
-        if args.cuda:
-            sos = sos.cuda()
-            unk = unk.cuda()
-
-        lat_to_cat = lat[0][0].unsqueeze(0)
-        emb_t = self.drop(self.encoder(unk)).unsqueeze(0)
-        emb_0 = self.drop(self.encoder(sos)).unsqueeze(0)
-        emb_t_comb = torch.cat([emb_t, lat_to_cat], dim=2)
-        emt_0_comb = torch.cat([emb_0, lat_to_cat], dim=2)
-
-        hidden = None
-
-        for t in range(seq_len):
-            # input (seq_len, batch, input_size)
-
-            if t == 0:
-                emb = emt_0_comb
-            else:
-                emb = emb_t_comb
-            # print(emb.size())
-
-            if hidden is None:
-                output, hidden = self.rnn(emb, None)
-            else:
-                output, hidden = self.rnn(emb, hidden)
-
-            output_prob = self.decoder(self.drop(output))
-            output_prob = output_prob.squeeze(0)
-            outputs_prob[t] = output_prob
-            value, ind = torch.topk(output_prob, 1, dim=1)
-            outputs[t] = ind.squeeze(1).data
-
-        return outputs_prob, outputs, mu, logvar
 
     def convert_z_to_hidden(self, z, batch_sz):
         """

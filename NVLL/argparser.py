@@ -63,6 +63,9 @@ def parse_arg():
                         help='Probability of replacing a word with a random word.')
 
     parser.add_argument('--bi', action='store_true',default=False)
-    parser.add_argument('--tie_rnn', action='store_true',default=False)
+    # parser.add_argument('--tie_rnn', action='store_true',default=False)
+
+    parser.add_argument('--cd_bow', action='store', default=0, type=int)
+    parser.add_argument('--cd_bit', action='store', default=0, type=int)
     args = parser.parse_args()
     return args

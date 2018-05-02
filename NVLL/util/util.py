@@ -4,6 +4,9 @@ import torch
 import random
 random.seed(2018)
 import numpy as np
+
+GPU_FLAG = True     # by default we use gpu
+
 def cos(a, b):
     """
     Compute cosine similarity between two vectors.
@@ -36,10 +39,10 @@ def check_dispersion(vecs,num_sam = 10):
 
 def GVar(x):
 
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and GPU_FLAG:
         return torch.autograd.Variable(x).cuda()
     else:
-        return torch.autograd.Variable(x)
+        return torch.autograd.Variable(x).cpu()
 
 def maybe_cuda(x):
     if torch.cuda.is_available():
@@ -72,7 +75,7 @@ class Dictionary(object):
         return len(self.idx2word)
 
     def save(self):
-        file_name = 'PTB.dict'
+        file_name = 'dict'
         ordered = OrderedDict(sorted(self.word2idx.items(), key=itemgetter(1)))
         wt_string = ''
         for i in ordered:
