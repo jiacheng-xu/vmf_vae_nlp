@@ -42,7 +42,7 @@ check_num_words("train.txt")
 check_num_words("test.txt")
 check_num_words("valid.txt")
 
-from NVLL.util.util import Dictionary
+# from NVLL.util.util import Dictionary
 def count(dic, fname):
     with open(fname,'r') as fd:
         lines = fd.read().splitlines()

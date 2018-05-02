@@ -56,7 +56,7 @@ class Runner():
                 else:
                     self.dead_cnt += 1
                     self.args.cur_lr /= 1.1
-                if self.dead_cnt == 3:
+                if self.dead_cnt == 7:
                     raise KeyboardInterrupt
                     # if epoch == 1 and math.exp(best_val_loss) >= 600:
                     #     raise KeyboardInterrupt
