@@ -1,8 +1,8 @@
 """
 Format: [sent_bit] [w0] [w1] ...
 """
-def remove_ids(fname, trunc=30):
-    with open(fname,'r') as fd:
+def remove_ids(fname, trunc=50):
+    with open(fname,'r',errors='ignore') as fd:
         lines = fd.read().splitlines()
     bag = []
     for l in lines:
@@ -55,7 +55,7 @@ def count(dic, fname):
                 dic[w] = 1
     return dic
 
-def reduce_vocab_sz(vocab_sz=10000):
+def reduce_vocab_sz(vocab_sz=15000):
     # pad eos unk
     d= {}
     d = count(d, "train.txt")
@@ -65,7 +65,7 @@ def reduce_vocab_sz(vocab_sz=10000):
     rt= []
     for k,v in s:
         rt.append(k)
-        print(k, v)
+        # print(k, v)
     return rt
 
 word_list = reduce_vocab_sz()

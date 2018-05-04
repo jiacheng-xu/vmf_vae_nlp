@@ -46,6 +46,7 @@ class Runner():
                                                            self.data.dev)
                 val_loss = float(val_loss)
                 Runner.log_eval(self.writer, self.glob_iter, cur_loss, cur_kl, val_loss, False)
+                print(self.args.save_name)
                 if not self.best_val_loss or val_loss < self.best_val_loss:
                     with open(self.args.save_name + ".model", 'wb') as f:
                         torch.save(self.model.state_dict(), f)
@@ -153,7 +154,7 @@ class Runner():
         for idx, batch in enumerate(train_batches):
             self.optim.zero_grad()
             seq_len, batch_sz = batch.size()
-            if self.model.condition:
+            if self.model.input_cd_bit:
                 seq_len -= 1
                 bit = batch[0,:]
                 batch = batch[1:, :]

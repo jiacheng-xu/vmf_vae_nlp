@@ -208,7 +208,7 @@ class Runner():
         cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
                                                    self.data.dev[0], self.data.dev[1], self.data.dev_batches)
         Runner.log_eval(self.writer, self.glob_iter, cur_loss, cur_kl, val_loss, False)
-
+        print(self.args.save_name)
         val_loss = val_loss.data[0]
         if not self.best_val_loss or val_loss < self.best_val_loss:
             with open(self.args.save_name + ".model", 'wb') as f:
@@ -222,8 +222,6 @@ class Runner():
             self.args.cur_lr /= 1.1
         if self.glob_iter > 1000 and val_loss > 7.2:
             raise KeyboardInterrupt
-        # if self.best_val_loss > 7.45:
-        #     raise KeyboardInterrupt
 
         if self.dead_cnt == 5:
             raise KeyboardInterrupt
