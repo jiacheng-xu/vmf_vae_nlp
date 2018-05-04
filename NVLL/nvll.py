@@ -46,6 +46,7 @@ def set_save_name_log_nvrnn(args):
 
 
 def main():
+
     args = NVLL.argparser.parse_arg()
     print("GPU Flag: {}".format(GPU_FLAG))
     if args.model == 'nvdm':

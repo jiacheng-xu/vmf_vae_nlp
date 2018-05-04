@@ -6,6 +6,7 @@ from NVLL.util.util import GVar
 
 class DataLM(object):
     def __init__(self, path, batch_sz, eval_batch_sz, condition=False):
+        self.condition = condition
         self.dictionary = Dictionary()
         self.test = self.tokenize(os.path.join(path, 'test.txt'), condition)
         self.train = self.tokenize(os.path.join(path, 'train.txt'), condition)

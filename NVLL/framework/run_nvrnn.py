@@ -2,9 +2,9 @@ import logging
 import math
 import random
 import time
-
+import numpy as np
 import torch
-
+from datetime import datetime, date, time
 from NVLL.model.nvrnn import RNNVAE
 from NVLL.util.util import schedule, GVar, swap_by_batch, replace_by_batch
 from NVLL.util.gpu_flag import GPU_FLAG
@@ -81,6 +81,10 @@ class Runner():
         model = model.eval()
         print(model)
         print(self.args)
+
+        train_loss, train_kl, train_total_loss = self.evaluate(self.args, model,
+                                                    self.data.train)
+
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test)
         Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
@@ -88,7 +92,23 @@ class Runner():
         os.rename(self.args.save_name + '.model',  self.args.save_name + '_'+ str(test_loss)  +'.model')
         os.rename(self.args.save_name + '.args',  self.args.save_name + '_'+ str(test_loss) +'.args')
 
+        # Write result to board
+        self.write_board(self.args, train_loss, train_kl,
+                         train_total_loss,cur_loss, cur_kl, test_loss)
         self.writer.close()
+
+    from datetime import datetime, date, time
+    @staticmethod
+    def write_board(args, train_loss, train_kl, train_total_loss, cur_loss, cur_kl, test_loss):
+        with open(os.path.join(args.exp_path, args.board),'a') as fd:
+            part_id = str(datetime.utcnow()) + "\t"
+            for k,v in vars(args).items():
+                part_id += str(k)+":\t"+str(v)+"\t"
+            part_loss = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+                train_loss, train_kl, train_total_loss,math.exp(train_total_loss),
+                cur_loss, cur_kl, test_loss, math.exp(test_loss))
+            print(part_id+part_loss)
+            fd.write(part_id+part_loss)
 
     @staticmethod
     def log_eval(writer, glob_iter, recon_loss, kl_loss, loss, is_test=False):
@@ -154,11 +174,14 @@ class Runner():
         for idx, batch in enumerate(train_batches):
             self.optim.zero_grad()
             seq_len, batch_sz = batch.size()
-            if self.model.input_cd_bit:
+            if self.data.condition:
                 seq_len -= 1
-                bit = batch[0,:]
                 batch = batch[1:, :]
-                bit = GVar(bit)
+                if self.model.input_cd_bit >1:
+                    bit = batch[0, :]
+                    bit = GVar(bit)
+                else:
+                    bit = None
             else:
                 bit = None
             feed = self.data.get_feed(batch)

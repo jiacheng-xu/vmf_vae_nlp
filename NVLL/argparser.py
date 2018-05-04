@@ -67,5 +67,7 @@ def parse_arg():
 
     parser.add_argument('--cd_bow', action='store', default=0, type=int)
     parser.add_argument('--cd_bit', action='store', default=0, type=int)
+
+    parser.add_argument('--board', action='store',default="board.log", type=str)
     args = parser.parse_args()
     return args
