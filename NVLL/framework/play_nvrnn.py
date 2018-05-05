@@ -17,6 +17,7 @@ from NVLL.util.util import GVar,swap_by_batch,replace_by_batch
 
 class PlayNVRNN():
     def __init__(self, load_path, load_name, data_path, swap, replace, mix_unk):
+
         self.args = self.load_args(load_path, load_name)
         print(swap, replace, mix_unk)
         if swap is not None:

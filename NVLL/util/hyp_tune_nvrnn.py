@@ -18,20 +18,20 @@ bag = []
 for cd_bit in [50]:
     for cd_bow in [0,200]:
         # for dist in ['zero', 'vmf','nor']:
-        for dist in ['vmf']:
-            for lat_dim in [50,100]:
+        for dist in ['zero','nor']:
+            for lat_dim in [100]:
                 if dist == 'vmf':
-                    for kappa in [5,10,20,30,40]:
+                    for kappa in [5,10,20]:
                         tmp = base +" --cd_bit {} --cd_bow {} --dist {} --kappa {}".format(cd_bit, cd_bow,dist,kappa)
                         bag.append(tmp)
                 else:
                     tmp = base +" --cd_bit {} --cd_bow {} --dist {}".format(cd_bit, cd_bow,dist)
                     bag.append(tmp)
-
+                print(tmp)
 print(len(bag))
 
 cnt_gpu = 4
-per_gpu = 2
+per_gpu = 1
 divid_pieces = cnt_gpu * per_gpu
 
 import random

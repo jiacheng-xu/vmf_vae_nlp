@@ -189,8 +189,9 @@ class RNNVAE(nn.Module):
             tup['norm'] = GVar(torch.zeros(batch_sz))
         # stat
         avg_cos = check_dispersion(vecs)
-        avg_norm = torch.mean(tup['norm'])
         tup['avg_cos'] = avg_cos
+
+        avg_norm = torch.mean(tup['norm'])
         tup['avg_norm'] = avg_norm
 
         vec = torch.mean(vecs, dim=0)
@@ -200,7 +201,7 @@ class RNNVAE(nn.Module):
         flatten_decoded = decoded.view(-1, self.ntoken)
         flatten_target = target.view(-1)
         loss = self.criterion(flatten_decoded, flatten_target)
-        return loss, kld, aux_loss, tup, vecs
+        return loss, kld, aux_loss, tup, vecs, decoded
 
     def enc_bit(self, bit):
         if self.input_cd_bit > 1:

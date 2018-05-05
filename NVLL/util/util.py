@@ -5,7 +5,7 @@ import random
 random.seed(2018)
 import numpy as np
 
-GPU_FLAG = True     # by default we use gpu
+from NVLL.util.gpu_flag import GPU_FLAG
 
 def cos(a, b):
     """
@@ -24,7 +24,7 @@ def check_dispersion(vecs,num_sam = 10):
     :return:
     """
     # vecs: n_samples, batch_sz, lat_dim
-    if vecs.size(1) <=2:
+    if vecs.size(1) <= 2:
         return  GVar(torch.zeros(1))
     cos_sim = 0
     for i in range(num_sam):
@@ -38,17 +38,10 @@ def check_dispersion(vecs,num_sam = 10):
 
 
 def GVar(x):
-
     if torch.cuda.is_available() and GPU_FLAG:
         return torch.autograd.Variable(x).cuda()
     else:
         return torch.autograd.Variable(x).cpu()
-
-def maybe_cuda(x):
-    if torch.cuda.is_available():
-        return x.cuda()
-    else:
-        return x
 
 def schedule(epo):
     return float(torch.sigmoid(torch.ones(1) * (epo / 2 - 5)))
@@ -73,6 +66,9 @@ class Dictionary(object):
 
     def __len__(self):
         return len(self.idx2word)
+
+    def query(self, idx):
+        return self.idx2word[idx]
 
     def save(self):
         file_name = 'dict'

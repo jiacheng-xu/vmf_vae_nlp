@@ -4,7 +4,6 @@ import random
 import time
 import numpy as np
 import torch
-from datetime import datetime, date, time
 from NVLL.model.nvrnn import RNNVAE
 from NVLL.util.util import schedule, GVar, swap_by_batch, replace_by_batch
 from NVLL.util.gpu_flag import GPU_FLAG
@@ -97,9 +96,10 @@ class Runner():
                          train_total_loss,cur_loss, cur_kl, test_loss)
         self.writer.close()
 
-    from datetime import datetime, date, time
+
     @staticmethod
     def write_board(args, train_loss, train_kl, train_total_loss, cur_loss, cur_kl, test_loss):
+        from datetime import datetime
         with open(os.path.join(args.exp_path, args.board),'a') as fd:
             part_id = str(datetime.utcnow()) + "\t"
             for k,v in vars(args).items():
@@ -136,6 +136,8 @@ class Runner():
                     cur_avg_cos, cur_avg_norm, recon_loss
                     , kl_loss, aux_loss,
                     val_loss):
+        if kl_loss<0.02 and args.dist == 'vmf':
+            raise KeyboardInterrupt
         try:
             print(
                 '| epoch {:3d} | time: {:5.2f}s | Iter: {} | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
@@ -176,12 +178,13 @@ class Runner():
             seq_len, batch_sz = batch.size()
             if self.data.condition:
                 seq_len -= 1
-                batch = batch[1:, :]
+
                 if self.model.input_cd_bit >1:
                     bit = batch[0, :]
                     bit = GVar(bit)
                 else:
                     bit = None
+                batch = batch[1:, :]
             else:
                 bit = None
             feed = self.data.get_feed(batch)
@@ -195,7 +198,7 @@ class Runner():
 
             target = GVar(batch)
 
-            recon_loss, kld, aux_loss, tup, vecs = model(feed, target, bit)
+            recon_loss, kld, aux_loss, tup, vecs, _ = model(feed, target, bit)
             total_loss = recon_loss * seq_len + torch.mean(kld) * self.args.kl_weight + torch.mean(
                 aux_loss) * args.aux_weight
 
@@ -266,10 +269,9 @@ class Runner():
             if self.args.replace > 0.00001:
                 feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
 
-
             target = GVar(batch)
 
-            recon_loss, kld, aux_loss, tup, vecs = model(feed, target, bit)
+            recon_loss, kld, aux_loss, tup, vecs, _ = model(feed, target, bit)
 
 
             acc_loss += recon_loss.data * seq_len * batch_sz
@@ -277,7 +279,6 @@ class Runner():
             acc_aux_loss += torch.sum(aux_loss).data
             acc_avg_cos += tup['avg_cos'].data
             acc_avg_norm += tup['avg_norm'].data
-
             cnt += 1
             batch_cnt += batch_sz
             all_cnt += batch_sz * seq_len
