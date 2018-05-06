@@ -3,7 +3,7 @@ import argparse
 
 def parse_arg():
     parser = argparse.ArgumentParser(description='Analyzer')
-
+    parser.add_argument('--board', type=str, default='board.log')
     parser.add_argument('--root_path', type=str, default='/home/cc/vae_txt')
     parser.add_argument('--exp_path', type=str, default='/home/cc/exp-nvrnn')
     parser.add_argument('--instance_name', type=str)

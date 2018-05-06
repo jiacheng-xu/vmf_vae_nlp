@@ -33,19 +33,21 @@ class Sample():
     def set_vmf_stat(self, mu):
         self.dist_type = "vmf"
         self.mu = mu
+    def set_zero_stat(self):
+        self.dist_type = "zero"
 
     def __repr__(self):
         def list_to_str(l):
             l = [str(i) for i in l]
             return "\t".join(l)
 
-        wt_str = "{}\n{}\n{}\n{}\n{}\n{}\n".format(self.gt, self.pred, self.recon_nll, self.kl,
-                                                   self.total_nll,
-                                                   list_to_str(self.code))
+        wt_str = "gt\tpred\trecon_nll\tkl\ttotal_nll\n{}\n{}\n{}\n{}\n{}\n".format(self.gt, self.pred, self.recon_nll, self.kl,
+                                                   self.total_nll
+                                                   )
         if self.dist_type == 'nor':
-            wt_str += "{}\n{}".format(list_to_str(self.mean), list_to_str(self.logvar))
+            wt_str += "{}\n{}\n{}".format(list_to_str(self.code),list_to_str(self.mean), list_to_str(self.logvar))
         elif self.dist_type == 'vmf':
-            wt_str += "{}".format(list_to_str(self.mu))
+            wt_str += "{}\n{}".format(list_to_str(self.code),list_to_str(self.mu))
         return wt_str
 
 
@@ -60,9 +62,10 @@ class ExpAnalyzer():
                  cd_bow=0, cd_bit=0):
         self.exp_path = exp_path
         self.instance_name = instance_name
+        self.temp = 1
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
-        fh = logging.FileHandler(os.path.join(exp_path, +instance_name + ".log"))
+        fh = logging.FileHandler(os.path.join(exp_path, instance_name + ".log"))
         ch = logging.StreamHandler()
         logger.addHandler(fh)
         logger.addHandler(ch)
@@ -126,18 +129,21 @@ class ExpAnalyzer():
         seq_len, batch_sz = target.size()
         for b in range(batch_sz):
             gt = target[:, b]
-            kl = kld[b]
             deco = decoded[:, b, :]
-            lat_code = vecs[:, b, :]
-            if self.model.dist_type == 'vmf':
-                mu = tup['mu']
-                sample = self.analyze_vmf(gt, kl, mu, lat_code, deco)
-            elif self.model.dist_type == 'nor':
-                mean = tup['mean'][b]
-                logvar = tup['logvar'][b]
-                sample = self.analyze_nor(gt, kl, mean, logvar, lat_code, deco)
+            if self.model.dist_type == 'zero':
+                sample = self.analyze_zero(gt, deco)
             else:
-                raise NotImplementedError
+                kl = kld[b]
+                lat_code = vecs[:, b, :]
+                if self.model.dist_type == 'vmf':
+                    mu = tup['mu']
+                    sample = self.analyze_vmf(gt, kl, mu, lat_code, deco)
+                elif self.model.dist_type == 'nor':
+                    mean = tup['mean'][b]
+                    logvar = tup['logvar'][b]
+                    sample = self.analyze_nor(gt, kl, mean, logvar, lat_code, deco)
+                else:
+                    raise NotImplementedError
             _tmp_bag.append(sample)
         return _tmp_bag
 
@@ -151,6 +157,7 @@ class ExpAnalyzer():
                    pred=pred_words,
                    code=None,
                    recon_nll=recon_nll, kl=0)
+        s.set_zero_stat()
         return s
 
     def analyze_vmf(self, gt, kld, mu, lat_code, decoded):
@@ -191,8 +198,11 @@ class ExpAnalyzer():
     def decode_to_ids(self, prob):
         seq_len, vocab_szie = prob.size()
         assert vocab_szie == len(self.data.dictionary)
-        _, argmax = torch.max(prob, dim=1, keepdim=False)
-        ids = argmax.data.tolist()
+        prob = torch.exp(prob).div(self.temp)
+        out = torch.multinomial(prob,1)
+        # _, argmax = torch.max(prob, dim=1, keepdim=False)
+        ids = out.data.tolist()
+        ids = [x[0] for x in ids]
         return ids
 
     def ids_to_words(self, ids):
@@ -413,16 +423,21 @@ def compute_cos(files):
 
 if __name__ == '__main__':
     args = parse_arg()
-    instance = ExpAnalyzer("/home/jcxu/vae_txt",
-                           exp_path="/backup2/jcxu/save-nvrnn",
+    instance = ExpAnalyzer(root_path=args.root_path,
+                           exp_path=args.exp_path,
                            instance_name=
                            # "Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa40.0_auxw0.0001_normfFalse_nlay1_mixunk0.0_inpzTrue_cdbit50_cdbow0"
-                           "Datayelp_Distnor_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa0.1_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow200_5.006251241317158"
+                           args.instance_name
                            ,
-                           data_path="data/yelp",
-                           eval_batch_size=20,
-                           mix_unk=1.0,
-                           swap=0, replace=0,
-                           cd_bow=200, cd_bit=50)
+                           data_path=args.data_path,
+                           eval_batch_size=args.eval_batch_size,
+                           mix_unk=args.mix_unk,
+                           swap=args.swap, replace=args.replace,
+                           cd_bow=args.cd_bow, cd_bit=args.cd_bit)
     cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
     instance.logger.info("{}\t{}\t{}".format(cur_loss, cur_kl, cur_real_loss))
+    with open(os.path.join(args.exp_path,args.board),'a' )as fd:
+        fd.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+            args.data_path, args.instance_name, args.mix_unk,
+            args.swap, args.replace ,args.cd_bow,args.cd_bit,cur_loss,cur_kl, cur_real_loss,
+            numpy.math.exp(cur_real_loss)))

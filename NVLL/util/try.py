@@ -46,10 +46,12 @@ def _sample_weight( kappa, dim):
             return w, cnt
 kappa = [32, 64,128]
 
-for k in kappa:
-    for d in kappa:
-        l = []
-        for _ in range(1000):
-            _, cnt =_sample_weight(k,d)
-            l.append(cnt)
-        print("{}\t{}\t{}".format(k,d,sum(l)/len(l)))
+# for k in kappa:
+#     for d in kappa:
+#         l = []
+#         for _ in range(1000):
+#             _, cnt =_sample_weight(k,d)
+#             l.append(cnt)
+#         print("{}\t{}\t{}".format(k,d,sum(l)/len(l)))
+input = torch.FloatTensor()
+torch.multinomial(input, 1, replacement=False)
