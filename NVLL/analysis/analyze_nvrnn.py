@@ -3,6 +3,7 @@
 
 import logging
 import os
+import random
 import shutil
 import time
 
@@ -13,6 +14,8 @@ from NVLL.analysis.analyzer_argparse import parse_arg
 from NVLL.data.lm import DataLM
 from NVLL.model.nvrnn import RNNVAE
 from NVLL.util.util import GVar, swap_by_batch, replace_by_batch
+
+cos = torch.nn.CosineSimilarity()
 
 
 class Sample():
@@ -33,6 +36,7 @@ class Sample():
     def set_vmf_stat(self, mu):
         self.dist_type = "vmf"
         self.mu = mu
+
     def set_zero_stat(self):
         self.dist_type = "zero"
 
@@ -41,13 +45,14 @@ class Sample():
             l = [str(i) for i in l]
             return "\t".join(l)
 
-        wt_str = "gt\tpred\trecon_nll\tkl\ttotal_nll\n{}\n{}\n{}\n{}\n{}\n".format(self.gt, self.pred, self.recon_nll, self.kl,
-                                                   self.total_nll
-                                                   )
+        wt_str = "gt\tpred\trecon_nll\tkl\ttotal_nll\n{}\n{}\n{}\n{}\n{}\n".format(self.gt, self.pred, self.recon_nll,
+                                                                                   self.kl,
+                                                                                   self.total_nll
+                                                                                   )
         if self.dist_type == 'nor':
-            wt_str += "{}\n{}\n{}".format(list_to_str(self.code),list_to_str(self.mean), list_to_str(self.logvar))
+            wt_str += "{}\n{}\n{}".format(list_to_str(self.code), list_to_str(self.mean), list_to_str(self.logvar))
         elif self.dist_type == 'vmf':
-            wt_str += "{}\n{}".format(list_to_str(self.code),list_to_str(self.mu))
+            wt_str += "{}\n{}".format(list_to_str(self.code), list_to_str(self.mu))
         return wt_str
 
 
@@ -147,6 +152,44 @@ class ExpAnalyzer():
             _tmp_bag.append(sample)
         return _tmp_bag
 
+    def analyze_batch_order(self, original_vecs, manipu_vecs):
+        """
+        Given original codes and manipilated codes, comp their cos similarity
+        :param original_vecs: sample_num, batch_size, lat_code
+        :param manipu_vecs: sample_num, batch_size, lat_code
+        :return:
+        """
+        original_vecs = torch.mean(original_vecs, dim=0).unsqueeze(2)
+        manipu_vecs = torch.mean(manipu_vecs, dim=0).unsqueeze(2)
+
+        x = torch.abs(cos(original_vecs, manipu_vecs))
+        return torch.mean(x.squeeze())
+
+    def analyze_batch_word_importance(self, original_vecs, manipu_vecs, masked_words):
+        pass
+
+    def analyze_batch_order_and_importance(self, original_vecs, manipulated_vecs):
+        _tmp_bag = []
+
+        batch_sz = original_vecs.size()[1]
+        for b in range(batch_sz):
+            if self.model.dist_type == 'zero':
+                raise NotImplementedError
+            else:
+                lat_code = vecs[:, b, :]
+                lat_code = torch.mean(lat_code, dim=0)
+                if self.model.dist_type == 'vmf':
+                    mu = tup['mu']
+                    sample = self.analyze_vmf(gt, kl, mu, lat_code, deco)
+                elif self.model.dist_type == 'nor':
+                    mean = tup['mean'][b]
+                    logvar = tup['logvar'][b]
+                    sample = self.analyze_nor(gt, kl, mean, logvar, lat_code, deco)
+                else:
+                    raise NotImplementedError
+            _tmp_bag.append(sample)
+        return _tmp_bag
+
     def analyze_zero(self, gt, decoded):
         pred_id = self.decode_to_ids(decoded)
         gt_id = gt.data.tolist()
@@ -199,7 +242,7 @@ class ExpAnalyzer():
         seq_len, vocab_szie = prob.size()
         assert vocab_szie == len(self.data.dictionary)
         prob = torch.exp(prob).div(self.temp)
-        out = torch.multinomial(prob,1)
+        out = torch.multinomial(prob, 1)
         # _, argmax = torch.max(prob, dim=1, keepdim=False)
         ids = out.data.tolist()
         ids = [x[0] for x in ids]
@@ -241,7 +284,7 @@ class ExpAnalyzer():
                 if idx % 10 == 0:
                     print("Idx: {}".format(idx))
                 seq_len, batch_sz = batch.size()
-                if self.model.condition:
+                if self.data.condition:
                     seq_len -= 1
                     bit = batch[0, :]
                     batch = batch[1:, :]
@@ -283,6 +326,119 @@ class ExpAnalyzer():
         cur_avg_norm = acc_avg_norm[0] / cnt
         cur_real_loss = cur_loss + cur_kl
         return cur_loss, cur_kl, cur_real_loss
+
+    def analysis_eval_word_importance(self, feed, batch, bit):
+        pass
+
+    def analysis_eval_order(self, feed, batch, bit):
+        assert 0.3 > self.args.swap > 0.0001
+        origin_feed = feed.clone()
+
+        feed_1x = swap_by_batch(feed.clone(), self.args.swap)
+        feed_2x = swap_by_batch(feed.clone(), self.args.swap * 2)
+        feed_3x = swap_by_batch(feed.clone(), self.args.swap * 3)
+
+        target = GVar(batch)
+
+        # recon_loss, kld, aux_loss, tup, vecs, decoded = self.model(feed, target, bit)
+        original_recon_loss, kld, _, original_tup, original_vecs, _ = self.model(origin_feed, target, bit)
+
+        recon_loss_1x, _, _, _, vecs_1x, _ = self.model(feed_1x, target, bit)
+        recon_loss_2x, _, _, _, vecs_2x, _ = self.model(feed_2x, target, bit)
+        recon_loss_3x, _, _, _, vecs_3x, _ = self.model(feed_3x, target, bit)
+
+        # target: seq_len, batchsz
+        # decoded: seq_len, batchsz, dict_sz
+        # tup: 'mean' 'logvar' for Gaussian
+        #         'mu' for vMF
+        # vecs
+        cos_1x = self.analyze_batch_order(original_vecs, vecs_1x).data
+        cos_2x = self.analyze_batch_order(original_vecs, vecs_2x).data
+        cos_3x = self.analyze_batch_order(original_vecs, vecs_3x).data
+        # print(cos_1x, cos_2x, cos_3x)
+        return [
+            [original_recon_loss.data, recon_loss_1x.data, recon_loss_2x.data, recon_loss_3x.data]
+            , [cos_1x, cos_2x, cos_3x]]
+
+    def unpack_bag_order(self, sample_bag):
+        import numpy as np
+        l = len(sample_bag)
+        print("Total {} batches".format(l))
+        acc_loss = np.asarray([0, 0, 0, 0])
+        acc_cos = np.asarray([0., 0., 0.])
+        acc_cnt = 0
+        # print(sample_bag)
+        for b in sample_bag:
+            acc_cnt += 1
+            losses = b[0]
+            # print(losses)
+            for idx, x in enumerate(losses):
+                acc_loss[idx] += x
+
+            _cos = b[1]
+            # print(b[1])
+            acc_cos += _cos
+            # for idx, x in enumerate(_cos):
+            #     acc_cos[idx] += np.asarray(x[0])
+
+        acc_loss = [x / acc_cnt for x in acc_loss]
+        acc_cos = [x / acc_cnt for x in acc_cos]
+        instance.logger.info("-" * 50)
+        instance.logger.info(
+            "Origin Loss|1x|2x|3x:\t{}\t{}\t{}\t{}\n".format(acc_loss[0], acc_loss[1], acc_loss[2], acc_loss[3]))
+        instance.logger.info(
+            "Cos 1x|2x|3x:\t{}\t{}\t{}\n".format(acc_cos[0], acc_cos[1], acc_cos[2]))
+        return acc_cos, acc_cos
+
+    def analysis_evaluation_order_and_importance(self):
+        """
+        Measure the change of cos sim given different encoding sequence
+        :return:
+        """
+        self.logger.info("Start Analyzing ... Picking up 100 batches to analyze")
+        start_time = time.time()
+        test_batches = self.data.test
+        random.shuffle(test_batches)
+        test_batches = test_batches[:30]
+        self.logger.info("Total {} batches to analyze".format(len(test_batches)))
+        acc_loss = 0
+        acc_kl_loss = 0
+
+        batch_cnt = 0
+        all_cnt = 0
+        cnt = 0
+        sample_bag = []
+        try:
+            for idx, batch in enumerate(test_batches):
+                if idx % 10 == 0:
+                    print("Now Idx: {}".format(idx))
+                seq_len, batch_sz = batch.size()
+                if self.data.condition:
+                    seq_len -= 1
+                    bit = batch[0, :]
+                    batch = batch[1:, :]
+                    bit = GVar(bit)
+                else:
+                    bit = None
+                feed = self.data.get_feed(batch)
+
+                if self.args.swap > 0.0001:
+                    bag = self.analysis_eval_order(feed, batch, bit)
+                elif self.args.replace > 0.0001:
+                    recon_loss, kld, bag = self.analysis_eval_word_importance(feed, batch, bit)
+                else:
+                    print("Maybe Wrong mode?")
+                    raise NotImplementedError
+
+                sample_bag.append(bag)
+        except KeyboardInterrupt:
+            print("early stop")
+        if self.args.swap > 0.0001:
+            return self.unpack_bag_order(sample_bag)
+        elif self.args.replace > 0.0001:
+            return self.unpack_bag_word_importance(sample_bag)
+        else:
+            raise NotImplementedError
 
 
 class visual_gauss():
@@ -434,10 +590,12 @@ if __name__ == '__main__':
                            mix_unk=args.mix_unk,
                            swap=args.swap, replace=args.replace,
                            cd_bow=args.cd_bow, cd_bit=args.cd_bit)
-    cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
-    instance.logger.info("{}\t{}\t{}".format(cur_loss, cur_kl, cur_real_loss))
-    with open(os.path.join(args.exp_path,args.board),'a' )as fd:
-        fd.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
-            args.data_path, args.instance_name, args.mix_unk,
-            args.swap, args.replace ,args.cd_bow,args.cd_bit,cur_loss,cur_kl, cur_real_loss,
-            numpy.math.exp(cur_real_loss)))
+    # cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
+    instance.analysis_evaluation_order_and_importance()
+    # instance.logger.info("{}\t{}\t{}".format(cur_loss, cur_kl, cur_real_loss))
+
+    # with open(os.path.join(args.exp_path,args.board),'a' )as fd:
+    #     fd.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+    #         args.data_path, args.instance_name, args.mix_unk,
+    #         args.swap, args.replace ,args.cd_bow,args.cd_bit,cur_loss,cur_kl, cur_real_loss,
+    #         numpy.math.exp(cur_real_loss)))

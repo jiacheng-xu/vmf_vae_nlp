@@ -11,7 +11,7 @@ def parse_arg():
     parser.add_argument('--eval_batch_size', type=int, default=10, help='evaluation batch size')
 
     parser.add_argument('--mix_unk', type=float, default=0)
-    parser.add_argument('--swap', action='store', default=0, type=float,
+    parser.add_argument('--swap', action='store', default=0.2, type=float,
                         help='Probability of swapping a word')
     parser.add_argument('--replace', action='store', default=0, type=float,
                         help='Probability of replacing a word with a random word.')

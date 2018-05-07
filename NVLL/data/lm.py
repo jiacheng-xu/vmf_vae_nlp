@@ -38,7 +38,7 @@ class DataLM(object):
         with open(path, 'r',errors='ignore') as f:
             for line in f:
                 words = line.split()
-                if len(words) < 1:
+                if len(words) < 2:
                     continue
                 words = line.split() + ['<eos>']
                 len_stat.append(len(words))
@@ -79,13 +79,13 @@ class DataLM(object):
             cnt += 1
         data_split = data_bag[cnt * batch_sz:]
         seq_len = data_split[0].size()[0]
-
-        data_batch = torch.zeros((batch_sz, seq_len))
-        for i, doc in enumerate(data_split):
-            for t in range(doc.size()[0]):
-                data_batch[i][t] = doc[t]
-        data_batch = torch.transpose(data_batch, 1, 0).long()
-        rt_bag_of_tensor.append(data_batch)
+        if len(data_split)>1:
+            data_batch = torch.zeros((len(data_split), seq_len))
+            for i, doc in enumerate(data_split):
+                for t in range(doc.size()[0]):
+                    data_batch[i][t] = doc[t]
+            data_batch = torch.transpose(data_batch, 1, 0).long()
+            rt_bag_of_tensor.append(data_batch)
 
         return rt_bag_of_tensor
 

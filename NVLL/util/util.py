@@ -84,8 +84,8 @@ def swap_by_batch(inp, ratio):
     for t in range(seq_len):
         if random.random() < ratio:
             rand_candidate = random.randint(0,seq_len-1)
-            a = inp[rand_candidate,:].data
-            b = inp[t,:].data
+            a = inp[rand_candidate,:].data.clone()
+            b = inp[t,:].data.clone()
             inp[rand_candidate] = b
             inp[t] = a
     return inp
@@ -95,6 +95,17 @@ def replace_by_batch( inp, ratio, ntokens):
     for t in range(seq_len):
         if random.random() < ratio:
             tmp = np.random.randint(ntokens, size=batchsz)
+            tmp = torch.from_numpy(tmp)
+            inp[t] = tmp
+    return inp
+
+
+def replace_by_batch_with_unk( inp, ratio):
+    seq_len, batchsz = inp.size()
+    for t in range(seq_len):
+        if random.random() < ratio:
+            tmp = np.asarray([2 for _ in range(batchsz)])
+            # tmp = np.random.randint(ntokens, size=batchsz)
             tmp = torch.from_numpy(tmp)
             inp[t] = tmp
     return inp

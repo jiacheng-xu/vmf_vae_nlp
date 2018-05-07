@@ -5,7 +5,7 @@ import time
 from NVLL.util.util import GVar
 
 
-class vMF_fast(torch.nn.Module):
+class vMF(torch.nn.Module):
     def __init__(self, hid_dim, lat_dim, kappa=1):
         super().__init__()
         self.hid_dim = hid_dim
@@ -14,7 +14,7 @@ class vMF_fast(torch.nn.Module):
         # self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
 
-        self.kld = GVar(torch.from_numpy(vMF_fast._vmf_kld(kappa, lat_dim)).float())
+        self.kld = GVar(torch.from_numpy(vMF._vmf_kld(kappa, lat_dim)).float())
         print('KLD: {}'.format(self.kld.data[0]))
 
     def estimate_param(self, latent_code):
@@ -67,13 +67,11 @@ class vMF_fast(torch.nn.Module):
 
     def sample_cell(self, mu, norm, kappa):
         batch_sz, lat_dim = mu.size()
-        mu = GVar(mu)
+        # mu = GVar(mu)
         mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
         w = self._sample_weight_batch(kappa, lat_dim, batch_sz)
         w = w.unsqueeze(1)
 
-
-        start = time.time()
         # batch version
         w_var = GVar(w * torch.ones(batch_sz, lat_dim))
         v = self._sample_ortho_batch(mu, lat_dim)
@@ -82,23 +80,7 @@ class vMF_fast(torch.nn.Module):
         orth_term = v * scale_factr
         muscale = mu * w_var
         sampled_vec = orth_term + muscale
-        mid = time.time()
-        print(sampled_vec, mid - start)
 
-        start = time.time()
-        # non batch version
-        sampled_vecs = GVar(torch.FloatTensor(batch_sz, lat_dim))
-        for b in range(batch_sz):
-            this_mu = mu[b]
-            w_var = GVar(w[b] * torch.ones(lat_dim))
-            v = self._sample_orthonormal_to(this_mu, lat_dim)
-            scale_factr = torch.sqrt(GVar(torch.ones(lat_dim)) - torch.pow(w_var, 2))
-            orth_term = v * scale_factr
-            muscale = this_mu * w_var
-            sv = orth_term + muscale
-            sampled_vecs[b] = sv
-        end  = time.time()
-        print(sampled_vecs, end-start)
         return sampled_vec.unsqueeze(0)
 
     def _sample_weight_batch(self, kappa, dim, batch_sz=1):
@@ -161,10 +143,10 @@ class vMF_fast(torch.nn.Module):
         return ortho / ortho_norm.expand_as(ortho)
 
 
-vmf = vMF_fast(50, 100, 100)
-batchsz = 100
-
-mu = torch.FloatTensor(np.random.uniform(0, 1, 20 * batchsz))
-mu = mu.view(batchsz, -1)
-mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
-vmf.sample_cell(mu, None, 100)
+# vmf = vMF_fast(50, 100, 100)
+# batchsz = 100
+#
+# mu = torch.FloatTensor(np.random.uniform(0, 1, 20 * batchsz))
+# mu = mu.view(batchsz, -1)
+# mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
+# vmf.sample_cell(mu, None, 100)

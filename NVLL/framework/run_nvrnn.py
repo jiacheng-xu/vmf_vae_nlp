@@ -255,7 +255,7 @@ class Runner():
         for idx, batch in enumerate(dev_batches):
 
             seq_len, batch_sz = batch.size()
-            if self.model.condition:
+            if self.data.condition:
                 seq_len -= 1
                 bit = batch[0,:]
                 batch = batch[1:, :]
