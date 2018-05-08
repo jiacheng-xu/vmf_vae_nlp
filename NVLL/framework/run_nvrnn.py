@@ -2,13 +2,16 @@ import logging
 import math
 import random
 import time
-import numpy as np
+
 import torch
+
 from NVLL.model.nvrnn import RNNVAE
-from NVLL.util.util import schedule, GVar, swap_by_batch, replace_by_batch
 from NVLL.util.gpu_flag import GPU_FLAG
+from NVLL.util.util import schedule, GVar, swap_by_batch, replace_by_batch
+
 random.seed(2018)
 import os
+
 
 class Runner():
     def __init__(self, args, model, data, writer):
@@ -39,7 +42,7 @@ class Runner():
                 epoch_start_time = time.time()
 
                 self.train_epo(self.args, self.model, self.data.train, epoch,
-                                           epoch_start_time, self.glob_iter)
+                               epoch_start_time, self.glob_iter)
 
                 cur_loss, cur_kl, val_loss = self.evaluate(self.args, self.model,
                                                            self.data.dev)
@@ -55,7 +58,7 @@ class Runner():
                     self.dead_cnt = 0
                 else:
                     self.dead_cnt += 1
-                    self.args.cur_lr /= 1.1
+                    self.args.cur_lr /= 1.2
                 if self.dead_cnt == 7:
                     raise KeyboardInterrupt
                     # if epoch == 1 and math.exp(best_val_loss) >= 600:
@@ -82,33 +85,32 @@ class Runner():
         print(self.args)
 
         train_loss, train_kl, train_total_loss = self.evaluate(self.args, model,
-                                                    self.data.train)
+                                                               self.data.train)
 
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test)
         Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
 
-        os.rename(self.args.save_name + '.model',  self.args.save_name + '_'+ str(test_loss)  +'.model')
-        os.rename(self.args.save_name + '.args',  self.args.save_name + '_'+ str(test_loss) +'.args')
+        os.rename(self.args.save_name + '.model', self.args.save_name + '_' + str(test_loss) + '.model')
+        os.rename(self.args.save_name + '.args', self.args.save_name + '_' + str(test_loss) + '.args')
 
         # Write result to board
         self.write_board(self.args, train_loss, train_kl,
-                         train_total_loss,cur_loss, cur_kl, test_loss)
+                         train_total_loss, cur_loss, cur_kl, test_loss)
         self.writer.close()
-
 
     @staticmethod
     def write_board(args, train_loss, train_kl, train_total_loss, cur_loss, cur_kl, test_loss):
         from datetime import datetime
-        with open(os.path.join(args.exp_path, args.board),'a') as fd:
+        with open(os.path.join(args.exp_path, args.board), 'a') as fd:
             part_id = str(datetime.utcnow()) + "\t"
-            for k,v in vars(args).items():
-                part_id += str(k)+":\t"+str(v)+"\t"
+            for k, v in vars(args).items():
+                part_id += str(k) + ":\t" + str(v) + "\t"
             part_loss = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
-                train_loss, train_kl, train_total_loss,math.exp(train_total_loss),
+                train_loss, train_kl, train_total_loss, math.exp(train_total_loss),
                 cur_loss, cur_kl, test_loss, math.exp(test_loss))
-            print(part_id+part_loss)
-            fd.write(part_id+part_loss)
+            print(part_id + part_loss)
+            fd.write(part_id + part_loss)
 
     @staticmethod
     def log_eval(writer, glob_iter, recon_loss, kl_loss, loss, is_test=False):
@@ -136,13 +138,19 @@ class Runner():
                     cur_avg_cos, cur_avg_norm, recon_loss
                     , kl_loss, aux_loss,
                     val_loss):
-        if kl_loss<0.02 and args.dist == 'vmf':
+        if kl_loss < 0.02 and args.dist == 'vmf':
+            raise KeyboardInterrupt
+        if kl_loss >1.0 and args.dist == 'vmf':
+            raise KeyboardInterrupt
+        if kl_loss > 0.4 and args.mix_unk < 0.01 and args.dist == 'vmf':
+            raise KeyboardInterrupt
+        if kl_loss < 0.05 and args.mix_unk > 0.99 and args.dist == 'vmf':
             raise KeyboardInterrupt
         try:
             print(
                 '| epoch {:3d} | time: {:5.2f}s | Iter: {} | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '
                 'loss: {:5.2f} | Total Loss {:5.2f} | PPL {:8.2f}'.format(
-                    epoch, (time.time() - epoch_start_time),glob_iter, args.kl_weight, cur_avg_cos, cur_avg_norm,
+                    epoch, (time.time() - epoch_start_time), glob_iter, args.kl_weight, cur_avg_cos, cur_avg_norm,
                     recon_loss, kl_loss, aux_loss, val_loss, math.exp(val_loss)))
             if writer is not None:
                 writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight, 'cur_avg_cos': cur_avg_cos,
@@ -179,7 +187,7 @@ class Runner():
             if self.data.condition:
                 seq_len -= 1
 
-                if self.model.input_cd_bit >1:
+                if self.model.input_cd_bit > 1:
                     bit = batch[0, :]
                     bit = GVar(bit)
                 else:
@@ -234,7 +242,6 @@ class Runner():
                                    , cur_kl, cur_aux_loss,
                                    cur_real_loss)
 
-
     def evaluate(self, args, model, dev_batches):
 
         # Turn on training mode which enables dropout.
@@ -257,7 +264,7 @@ class Runner():
             seq_len, batch_sz = batch.size()
             if self.data.condition:
                 seq_len -= 1
-                bit = batch[0,:]
+                bit = batch[0, :]
                 batch = batch[1:, :]
                 bit = GVar(bit)
             else:
@@ -272,7 +279,6 @@ class Runner():
             target = GVar(batch)
 
             recon_loss, kld, aux_loss, tup, vecs, _ = model(feed, target, bit)
-
 
             acc_loss += recon_loss.data * seq_len * batch_sz
             acc_kl_loss += torch.sum(kld).data

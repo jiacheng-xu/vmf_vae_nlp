@@ -7,6 +7,7 @@ from tensorboardX import SummaryWriter
 import NVLL.argparser
 from NVLL.util.gpu_flag import GPU_FLAG
 
+
 def set_seed(args):
     torch.manual_seed(args.seed)
     if torch.cuda.is_available() and GPU_FLAG:
@@ -32,13 +33,14 @@ def set_save_name_log_nvdm(args):
 
 def set_save_name_log_nvrnn(args):
     args.save_name = os.path.join(
-        args.root_path, args.exp_path, 'Data{}_' \
-       'Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}_cdbit{}_cdbow{}'
-                                  .format(
-        args.data_name, str(args.dist), args.model, args.enc_type, args.bi,
-        args.emsize,
-        args.nhid, args.lat_dim, args.lr,
-        args.dropout, args.kappa, args.aux_weight, str(args.norm_func), args.nlayers, args.mix_unk, args.input_z, args.cd_bit, args.cd_bow))
+         args.exp_path, 'Data{}_' \
+                                       'Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}_cdbit{}_cdbow{}'
+            .format(
+            args.data_name, str(args.dist), args.model, args.enc_type, args.bi,
+            args.emsize,
+            args.nhid, args.lat_dim, args.lr,
+            args.dropout, args.kappa, args.aux_weight, str(args.norm_func), args.nlayers, args.mix_unk, args.input_z,
+            args.cd_bit, args.cd_bow))
     writer = SummaryWriter(log_dir=args.save_name)
     log_name = args.save_name + '.log'
     logging.basicConfig(filename=log_name, level=logging.INFO)
@@ -46,7 +48,6 @@ def set_save_name_log_nvrnn(args):
 
 
 def main():
-
     args = NVLL.argparser.parse_arg()
     print("GPU Flag: {}".format(GPU_FLAG))
     if args.model == 'nvdm':
@@ -92,10 +93,29 @@ def main():
             raise NotImplementedError
         model = RNNVAE(args, args.enc_type, len(data.dictionary), args.emsize, args.nhid, args.lat_dim, args.nlayers,
                        dropout=args.dropout, tie_weights=False, input_z=args.input_z,
-                       mix_unk=args.mix_unk,condition=(args.cd_bit or args.cd_bow),
+                       mix_unk=args.mix_unk, condition=(args.cd_bit or args.cd_bow),
                        input_cd_bow=args.cd_bow, input_cd_bit=args.cd_bit)
+        # Automatic matching loading
         if args.load is not None:
             model.load_state_dict(torch.load(args.load), strict=False)
+        else:
+            files = os.listdir(os.path.join( args.exp_path))
+            files = [f for f in files if f.endswith(".model")]
+            current_name = "Data{}_Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}".format(args.data_name, str(args.dist),
+                                                                                      args.model, args.enc_type,
+                                                                                      args.bi,
+                                                                                      args.emsize,
+                                                                                      args.nhid, args.lat_dim)
+            for f in files:
+                if current_name in f and ("mixunk0.0" in f):
+                    try:
+                        model.load_state_dict(torch.load(os.path.join(
+                                                                      args.exp_path, f)), strict=False)
+                        print("Auto Load success! {}".format(f))
+                        break
+                    except RuntimeError:
+                        print("Automatic Load failed!")
+
         if torch.cuda.is_available() and GPU_FLAG:
             model = model.cuda()
         runner = Runner(args, model, data, writer)

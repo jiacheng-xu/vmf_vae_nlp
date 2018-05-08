@@ -13,7 +13,7 @@ import torch
 from NVLL.analysis.analyzer_argparse import parse_arg
 from NVLL.data.lm import DataLM
 from NVLL.model.nvrnn import RNNVAE
-from NVLL.util.util import GVar, swap_by_batch, replace_by_batch
+from NVLL.util.util import GVar, swap_by_batch, replace_by_batch,replace_by_batch_with_unk
 
 cos = torch.nn.CosineSimilarity()
 
@@ -162,7 +162,8 @@ class ExpAnalyzer():
         original_vecs = torch.mean(original_vecs, dim=0).unsqueeze(2)
         manipu_vecs = torch.mean(manipu_vecs, dim=0).unsqueeze(2)
 
-        x = torch.abs(cos(original_vecs, manipu_vecs))
+        x = cos(original_vecs, manipu_vecs)
+        # print(x)
         return torch.mean(x.squeeze())
 
     def analyze_batch_word_importance(self, original_vecs, manipu_vecs, masked_words):
@@ -328,7 +329,49 @@ class ExpAnalyzer():
         return cur_loss, cur_kl, cur_real_loss
 
     def analysis_eval_word_importance(self, feed, batch, bit):
-        pass
+        """
+        Given a sentence, replace a certain word by UNK and see how lat code change from the origin one.
+        :param feed:
+        :param batch:
+        :param bit:
+        :return:
+        """
+        seq_len, batch_sz = batch.size()
+        target = GVar(batch)
+        origin_feed = feed.clone()
+        original_recon_loss, kld, _, original_tup, original_vecs, _ = self.model(origin_feed, target, bit)
+        # original_vecs = torch.mean(original_vecs, dim=0).unsqueeze(2)
+        original_mu = original_tup['mu']
+        # table_of_code = torch.FloatTensor(seq_len, batch_sz )
+        table_of_mu = torch.FloatTensor(seq_len, batch_sz)
+        for t in range(seq_len):
+            cur_feed = feed.clone()
+            cur_feed[t,:] = 2
+            cur_recon, _, _, cur_tup, cur_vec, _ = self.model(cur_feed, target, bit)
+
+            cur_mu = cur_tup['mu']
+            # cur_vec = torch.mean(cur_vec, dim=0).unsqueeze(2)
+            # x = cos(original_vecs, cur_vec)
+            # x= x.squeeze()
+            y=cos(original_mu, cur_mu)
+            y = y.squeeze()
+
+            # table_of_code[t,:] = x.data
+            table_of_mu[t,:] = y.data
+        bag = []
+        for b in range(batch_sz):
+            weight = table_of_mu[:,b]
+            word_ids = feed[:,b]
+            words = self.ids_to_words(word_ids.data.tolist())
+            seq_of_words = words.split(" ")
+            s=""
+            for t in range(seq_len):
+                if weight[t]<0.98:
+                    s+="*" +seq_of_words[t] +"* "
+                else:
+                    s+= seq_of_words[t]+" "
+            bag.append(s)
+        return bag
 
     def analysis_eval_order(self, feed, batch, bit):
         assert 0.3 > self.args.swap > 0.0001
@@ -342,19 +385,22 @@ class ExpAnalyzer():
 
         # recon_loss, kld, aux_loss, tup, vecs, decoded = self.model(feed, target, bit)
         original_recon_loss, kld, _, original_tup, original_vecs, _ = self.model(origin_feed, target, bit)
-
-        recon_loss_1x, _, _, _, vecs_1x, _ = self.model(feed_1x, target, bit)
-        recon_loss_2x, _, _, _, vecs_2x, _ = self.model(feed_2x, target, bit)
-        recon_loss_3x, _, _, _, vecs_3x, _ = self.model(feed_3x, target, bit)
+        original_mu = original_tup['mu']
+        recon_loss_1x, _, _, tup_1x, vecs_1x, _ = self.model(feed_1x, target, bit)
+        recon_loss_2x, _, _, tup_2x, vecs_2x, _ = self.model(feed_2x, target, bit)
+        recon_loss_3x, _, _, tup_3x, vecs_3x, _ = self.model(feed_3x, target, bit)
 
         # target: seq_len, batchsz
         # decoded: seq_len, batchsz, dict_sz
         # tup: 'mean' 'logvar' for Gaussian
         #         'mu' for vMF
         # vecs
-        cos_1x = self.analyze_batch_order(original_vecs, vecs_1x).data
-        cos_2x = self.analyze_batch_order(original_vecs, vecs_2x).data
-        cos_3x = self.analyze_batch_order(original_vecs, vecs_3x).data
+        # cos_1x = self.analyze_batch_order(original_vecs, vecs_1x).data
+        # cos_2x = self.analyze_batch_order(original_vecs, vecs_2x).data
+        # cos_3x = self.analyze_batch_order(original_vecs, vecs_3x).data
+        cos_1x = torch.mean(cos(original_mu, tup_1x["mu"])).data
+        cos_2x = torch.mean(cos(original_mu, tup_2x["mu"])).data
+        cos_3x = torch.mean(cos(original_mu, tup_3x["mu"])).data
         # print(cos_1x, cos_2x, cos_3x)
         return [
             [original_recon_loss.data, recon_loss_1x.data, recon_loss_2x.data, recon_loss_3x.data]
@@ -377,7 +423,7 @@ class ExpAnalyzer():
 
             _cos = b[1]
             # print(b[1])
-            acc_cos += _cos
+            acc_cos += np.asarray(_cos)
             # for idx, x in enumerate(_cos):
             #     acc_cos[idx] += np.asarray(x[0])
 
@@ -390,6 +436,11 @@ class ExpAnalyzer():
             "Cos 1x|2x|3x:\t{}\t{}\t{}\n".format(acc_cos[0], acc_cos[1], acc_cos[2]))
         return acc_cos, acc_cos
 
+    def unpack_bag_word_importance(self, sample_bag):
+        for b in sample_bag:
+            for x in b:
+                print(x)
+                print("-"*80)
     def analysis_evaluation_order_and_importance(self):
         """
         Measure the change of cos sim given different encoding sequence
@@ -399,7 +450,7 @@ class ExpAnalyzer():
         start_time = time.time()
         test_batches = self.data.test
         random.shuffle(test_batches)
-        test_batches = test_batches[:30]
+        test_batches = test_batches[:50]
         self.logger.info("Total {} batches to analyze".format(len(test_batches)))
         acc_loss = 0
         acc_kl_loss = 0
@@ -425,7 +476,7 @@ class ExpAnalyzer():
                 if self.args.swap > 0.0001:
                     bag = self.analysis_eval_order(feed, batch, bit)
                 elif self.args.replace > 0.0001:
-                    recon_loss, kld, bag = self.analysis_eval_word_importance(feed, batch, bit)
+                    bag = self.analysis_eval_word_importance(feed, batch, bit)
                 else:
                     print("Maybe Wrong mode?")
                     raise NotImplementedError
