@@ -141,7 +141,7 @@ class ExpAnalyzer():
                 kl = kld[b]
                 lat_code = vecs[:, b, :]
                 if self.model.dist_type == 'vmf':
-                    mu = tup['mu']
+                    mu = tup['mu'][b]
                     sample = self.analyze_vmf(gt, kl, mu, lat_code, deco)
                 elif self.model.dist_type == 'nor':
                     mean = tup['mean'][b]
@@ -641,8 +641,8 @@ if __name__ == '__main__':
                            mix_unk=args.mix_unk,
                            swap=args.swap, replace=args.replace,
                            cd_bow=args.cd_bow, cd_bit=args.cd_bit)
-    # cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
-    instance.analysis_evaluation_order_and_importance()
+    cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
+    # instance.analysis_evaluation_order_and_importance()
     # instance.logger.info("{}\t{}\t{}".format(cur_loss, cur_kl, cur_real_loss))
 
     # with open(os.path.join(args.exp_path,args.board),'a' )as fd:
@@ -650,3 +650,5 @@ if __name__ == '__main__':
     #         args.data_path, args.instance_name, args.mix_unk,
     #         args.swap, args.replace ,args.cd_bow,args.cd_bit,cur_loss,cur_kl, cur_real_loss,
     #         numpy.math.exp(cur_real_loss)))
+
+    "--data_path data/yelp --swap 0 --replace 0 --cd_bit 50 --root_path /home/cc/vae_txt --exp_path /home/cc/save-nvrnn --instance_name   Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa200.0_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow0_4.9021353610814655   --cd_bow 	0   --mix_unk   1"

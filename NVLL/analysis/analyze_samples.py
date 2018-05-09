@@ -1,10 +1,26 @@
 import abc
 import multiprocessing
 import os
-
+import random
 import numpy as np
-
+import scipy
+import scipy.spatial
 from numpy import linalg as LA
+
+def comp_jaccard_distance(a,b):
+    """
+
+    :param a: a list of words
+    :param b: a list of words
+    :return: Jaccard distance between these two lists
+    """
+    raw_len = len(a) + len(b)
+    cnt =0
+    for w in a:
+        if w in b and w not in ["a","the","is","was","they","i","an","all","he","she","<unk>","<eos>"]:
+            cnt += 1.
+    return (cnt) / (raw_len-cnt)
+
 class DistAnalyzer():
     @staticmethod
     def line_to_numpy(line):
@@ -26,12 +42,50 @@ class DistAnalyzer():
 
 
 class GaussAnalyzer(DistAnalyzer):
-    def __init__(self, path, sample_num=100):
+    def __init__(self, path, sample_num=50):
         self.path = path
         self.data = self.batch_read_sample(path)
         self.N = sample_num
         print("Gauss: Finish loading data. Start Analyzing!")
-        self.analyze()
+        # self.analyze()
+        self.distance_compare()
+
+
+    @staticmethod
+    def distance_compare_unit( data):
+        host = data[0]
+        host_words = host['gt'].split(" ")
+        host_mean = host['mean']
+        host_mean = host_mean / LA.norm(host_mean)
+
+        guest = data[1:]
+        num_guest = len(guest)
+        bag = []
+        for idx, g in enumerate(guest):
+            g_mean = g['mean']
+            g_words = g['gt'].split(" ")
+            # jaccard = comp_jaccard_distance(g_words, host_words)
+            cos_distance = -1*(scipy.spatial.distance.cosine(g_mean, host_mean)-1)
+            bag.append([0, cos_distance])
+        return bag
+
+    def distance_compare(self, num=50):
+        print("Start distance comparison. ")
+        all_data_size = len(self.data)
+        results = []
+        for n in range(num):
+            x = random.sample(range(all_data_size), num)
+            this_data = [self.data[i] for i in x]
+            point = self.distance_compare_unit(this_data)
+            results += point
+        results = sorted(results, key=lambda x: x[0], reverse=True)
+
+        for r in results:
+            # print("{}\t{}".format(r[0], r[1]))
+            # print(r[1])
+            print((r[1] + 1) // 0.1)
+        # print("First num: Jaccard Distance; Second num: Cos distance (smaller closer) (range:0-2)")
+
 
     def analyze(self):
         # For Gauss, sample 20 sents close to origin and 20 far from origin.
@@ -133,8 +187,43 @@ class VMFAnalyzer(DistAnalyzer):
     def __init__(self, path):
         self.path = path
 
+        self.data = self.batch_read_sample(path)
         # For vMF, compare cos of lat code and show 20 sents with close cosine distance
         # implement function of computing inner and inter for cluster
+        self.distance_compare()
+    @staticmethod
+    def distance_compare_unit(data):
+        host = data[0]
+        host_words = host['gt'].split(" ")
+        host_mean = host['mu']
+        host_mean = host_mean / LA.norm(host_mean)
+
+        guest = data[1:]
+        num_guest = len(guest)
+        bag = []
+        for idx, g in enumerate(guest):
+            g_mean = g['mu']
+            g_words = g['gt'].split(" ")
+            # jaccard = comp_jaccard_distance(g_words, host_words)
+            cos_distance = -1*(scipy.spatial.distance.cosine(g_mean, host_mean)-1)
+            bag.append([0, cos_distance])
+        return bag
+
+    def distance_compare(self, num=50):
+        print("Start distance comparison. ")
+        all_data_size = len(self.data)
+        results = []
+        for n in range(num):
+            x = random.sample(range(all_data_size), num)
+            this_data = [self.data[i] for i in x]
+            point = self.distance_compare_unit(this_data)
+            results += point
+        results = sorted(results, key=lambda x: x[0], reverse=True)
+
+        for r in results:
+            # print("{}\t{}".format(r[0], r[1]))
+            print((r[1]+1)// 0.1)
+        # print("First num: Jaccard Distance; Second num: Cos distance (smaller closer) (range:0-2)")
 
     def comp_cos(self):
         pass
@@ -159,6 +248,7 @@ class VMFAnalyzer(DistAnalyzer):
         num_of_lines = len(lines)
         assert num_of_lines == 8
         rt = {}
+        rt['id'] = uniq_id
         rt['gt'] = lines[1]
         rt['pred'] = lines[2]
         rt['recon'] = float(lines[3])
@@ -171,15 +261,12 @@ class VMFAnalyzer(DistAnalyzer):
         return rt
 
 
+
 if __name__ == '__main__':
     # Run Analyzer
     base_path = "/home/cc/save-nvrnn"
     gauss = GaussAnalyzer(os.path.join(base_path,
-                                       "Datayelp_Distnor_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0"
-                                       ".5_kappa0.1_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow0_5"
-                                       ".545100331287798logs"))
+                                       "Datayelp_Distnor_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa0.1_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow200_5.006251241317158logs"))
     vmf = VMFAnalyzer(os.path.join(base_path,
-                                   "Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0"
-                                   ".5_kappa200.0_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow0_4"
-                                   ".9021353610814655logs"))
+                                   "Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa100.0_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow200_4.307300597355627logs"))
 
