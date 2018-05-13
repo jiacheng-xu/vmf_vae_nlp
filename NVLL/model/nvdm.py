@@ -3,7 +3,7 @@ random.seed(2018)
 import torch
 
 from NVLL.distribution.gauss import Gauss
-from NVLL.distribution.vmf_only import vMF
+from NVLL.distribution.vmf_batch import vMF
 from NVLL.distribution.vmf_unif import unif_vMF
 from NVLL.util.util import GVar
 
@@ -36,8 +36,9 @@ class BowVAE(torch.nn.Module):
             raise NotImplementedError
 
         # Decoding
-        self.out = torch.nn.Linear(self.n_lat, self.vocab_size)
 
+        self.dec_vec = torch.nn.Linear(self.n_lat, self.n_hidden)
+        self.out = torch.nn.Linear(self.n_hidden, self.vocab_size)
     def forward(self, x):
         batch_sz = x.size()[0]
 
@@ -59,8 +60,10 @@ class BowVAE(torch.nn.Module):
         avg_norm = torch.mean(tup['norm'])
         tup['avg_cos'] = avg_cos
         tup['avg_norm'] = avg_norm
+        linear_code = self.dec_vec(vecs)
+        active_code = self.active(linear_code)
 
-        flatten_vecs = vecs.view(self.n_sample * batch_sz, self.n_lat)
+        flatten_vecs = active_code.view(self.n_sample * batch_sz, self.n_hidden)
         logit = self.dropout(self.out(flatten_vecs))
         logit = torch.nn.functional.log_softmax(logit)
         logit = logit.view(self.n_sample, batch_sz, self.vocab_size)

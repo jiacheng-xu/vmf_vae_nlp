@@ -1,13 +1,13 @@
 base = "PYTHONPATH=../../ python ../nvll.py --cuda --lr 10.0 --batch_size 20 " \
-       "--eval_batch_size 20 --log_interval 500 --model nvrnn --epochs 60  " \
+       "--eval_batch_size 20 --log_interval 500 --model nvrnn --epochs 100  " \
        "--optim sgd --data_name ptb --data_path data/ptb --clip 0.25 " \
        "--input_z --dropout 0.5 --emsize 100 --nhid 400 --aux_weight 0.0001 " \
-       " --nlayers 2 --swap 0.0 --replace 0.0  --bi" \
+       " --nlayers 1 --swap 0.0 --replace 0.0 " \
        " "
 
 path_big = " --exp_path /home/cc/exp-nvrnn --root_path /home/cc/vae_txt  "
 path_eve = " --exp_path /backup2/jcxu/exp-nvrnn --root_path /home/jcxu/vae_txt  "
-
+path_mav = "--exp_path /work/05235/jcxu/maverick/exp-nvrnn   --root_path /work/05235/jcxu/maverick/vae_txt"
 base = base + path_big
 
 # RNNLM(zero), nor, vMF
@@ -16,20 +16,26 @@ base = base + path_big
 
 bag = []
 for cd_bit in [0]:
-    for cd_bow in [200]:
+    for cd_bow in [0]:
         # for dist in ['zero', 'vmf','nor']:
-        for dist in ['zero','nor']:
-            for lat_dim in [50,100]:
-                for mix_unk in [0]:
+        for dist in ['vmf']:
+            for lat_dim in [25]:
+                for mix_unk in [1]:
                     if dist == 'vmf':
                         if lat_dim == 100:
-                            for kappa in [10, 25,50]:
+                            for kappa in [50,100]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 50:
-                            for kappa in [10, 25]:
+                            for kappa in [ 25,50,100]:
+                                tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
+                                    format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
+                                bag.append(tmp)
+                                print(tmp)
+                        elif lat_dim == 25:
+                            for kappa in [ 10	,25	,40	,55	,70	,85	,100 , 115, 130, 145]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
@@ -41,38 +47,10 @@ for cd_bit in [0]:
                             format(cd_bit, cd_bow, dist, mix_unk, lat_dim)
                         bag.append(tmp)
                         print(tmp)
-
-                # for mix_unk in [0]:
-                #     if dist == 'vmf':
-                #         if lat_dim == 100:
-                #             for kappa in [10, 20, 30]:
-                #                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
-                #                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
-                #                 bag.append(tmp)
-                #                 print(tmp)
-                #         elif lat_dim == 400:
-                #             for kappa in [10, 20, 50, 100, 200]:
-                #                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
-                #                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
-                #                 bag.append(tmp)
-                #                 print(tmp)
-                #         elif lat_dim == 50:
-                #             for kappa in [5, 10, 20,  30]:
-                #                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
-                #                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
-                #                 bag.append(tmp)
-                #                 print(tmp)
-                #         else:
-                #             raise NotImplementedError
-                #     else:
-                #         tmp = base + " --cd_bit {} --cd_bow {} --dist {} --mix_unk {} --lat_dim {}". \
-                #             format(cd_bit, cd_bow, dist, mix_unk, lat_dim)
-                #         bag.append(tmp)
-                #         print(tmp)
 print(len(bag))
 
 cnt_gpu = 4
-per_gpu = 1
+per_gpu = 2
 divid_pieces = cnt_gpu * per_gpu
 
 import random
@@ -85,13 +63,13 @@ for idx in range(len(bag)):
     # N = random.randrange(0, cnt_gpu)
     # tmp = 'CUDA_VISIBLE_DEVICES={} '.format(N) + tmp
     if idx % divid_pieces < per_gpu:
-        tmp = 'CUDA_VISIBLE_DEVICES=3 ' + tmp
+        tmp = 'CUDA_VISIBLE_DEVICES=0 ' + tmp
     elif idx % divid_pieces < per_gpu * 2:
         tmp = 'CUDA_VISIBLE_DEVICES=1 ' + tmp
     elif idx % divid_pieces < per_gpu * 3:
         tmp = 'CUDA_VISIBLE_DEVICES=2 ' + tmp
     else:
-        tmp = 'CUDA_VISIBLE_DEVICES=0 ' + tmp
+        tmp = 'CUDA_VISIBLE_DEVICES=3 ' + tmp
     prints[idx % divid_pieces].append(tmp)
 
 cnt = 0

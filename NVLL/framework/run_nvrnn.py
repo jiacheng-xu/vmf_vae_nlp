@@ -138,14 +138,14 @@ class Runner():
                     cur_avg_cos, cur_avg_norm, recon_loss
                     , kl_loss, aux_loss,
                     val_loss):
-        if kl_loss < 0.02 and args.dist == 'vmf':
-            raise KeyboardInterrupt
-        if kl_loss >1.0 and args.dist == 'vmf':
-            raise KeyboardInterrupt
-        if kl_loss > 0.4 and args.mix_unk < 0.01 and args.dist == 'vmf':
-            raise KeyboardInterrupt
-        if kl_loss < 0.05 and args.mix_unk > 0.99 and args.dist == 'vmf':
-            raise KeyboardInterrupt
+        # if kl_loss < 0.02 and args.dist == 'vmf':
+        #     raise KeyboardInterrupt
+        # if kl_loss >1.0 and args.dist == 'vmf':
+        #     raise KeyboardInterrupt
+        # if kl_loss > 0.4 and args.mix_unk < 0.01 and args.dist == 'vmf':
+        #     raise KeyboardInterrupt
+        # if kl_loss < 0.05 and args.mix_unk > 0.99 and args.dist == 'vmf':
+        #     raise KeyboardInterrupt
         try:
             print(
                 '| epoch {:3d} | time: {:5.2f}s | Iter: {} | KL Weight {:5.2f} | AvgCos {:5.2f} | AvgNorm {:5.2f} |Recon Loss {:5.2f} | KL Loss {:5.2f} | Aux '

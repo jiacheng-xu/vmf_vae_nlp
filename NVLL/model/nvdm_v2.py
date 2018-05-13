@@ -3,7 +3,7 @@ random.seed(2018)
 import torch
 
 from NVLL.distribution.gauss import Gauss
-from NVLL.distribution.vmf_only import vMF
+from NVLL.distribution.vmf_batch import vMF
 from NVLL.distribution.vmf_unif import unif_vMF
 from NVLL.util.util import GVar
 

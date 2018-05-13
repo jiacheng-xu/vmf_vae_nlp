@@ -194,7 +194,6 @@ class CodeLearner():
         batch_cnt = 0
         all_cnt = 0
         cnt = 0
-        start_time = time.time()
 
         for idx, batch in enumerate(dev_batches):
 
@@ -207,11 +206,6 @@ class CodeLearner():
             else:
                 bit = None
             feed = self.data.get_feed(batch)
-
-            if self.args.swap > 0.00001:
-                feed = swap_by_batch(feed, self.args.swap)
-            if self.args.replace > 0.00001:
-                feed = replace_by_batch(feed, self.args.replace, self.model.ntoken)
 
             target = GVar(batch)
 

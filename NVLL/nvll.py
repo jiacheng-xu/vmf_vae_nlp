@@ -59,10 +59,32 @@ def main():
         # from NVLL.model.nvdm import BowVAE
         from NVLL.model.nvdm import BowVAE
         from NVLL.framework.run_nvdm import Runner
-
+        # Datarcv_Distvmf_Modelnvdm_Emb400_Hid400_lat50
         data = DataNg(args)
         model = BowVAE(args, vocab_size=data.vocab_size, n_hidden=args.nhid, n_lat=args.lat_dim,
                        n_sample=5, dist=args.dist)
+        # Automatic matching loading
+        if args.load is not None:
+            model.load_state_dict(torch.load(args.load), strict=False)
+        else:
+            files = os.listdir(os.path.join(args.exp_path))
+            files = [f for f in files if f.endswith(".model")]
+            current_name = "Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}".format(args.data_name, str(args.dist),
+                                                                                      args.model,
+
+                                                                                      args.emsize,
+                                                                                      args.nhid, args.lat_dim)
+            for f in files:
+                if current_name in f:
+                    try:
+                        model.load_state_dict(torch.load(os.path.join(
+                            args.exp_path, f)), strict=False)
+                        print("Auto Load success! File Name: {}".format(f))
+                        break
+                    except RuntimeError:
+                        print("Automatic Load failed!")
+
+
         if torch.cuda.is_available() and GPU_FLAG:
             print("Model in GPU")
             model = model.cuda()

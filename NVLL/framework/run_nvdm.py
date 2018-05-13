@@ -54,6 +54,19 @@ class Runner():
             print('-' * 89)
             print('Exiting from training early')
 
+    @staticmethod
+    def write_board(args,  cur_loss, cur_kl, test_loss):
+        from datetime import datetime
+        with open(os.path.join(args.exp_path, args.board), 'a') as fd:
+            part_id = str(datetime.utcnow()) + "\t"
+            for k, v in vars(args).items():
+                part_id += str(k) + ":\t" + str(v) + "\t"
+            part_loss = "{}\t{}\t{}\t{}\n".format(
+
+                cur_loss, cur_kl, test_loss, math.exp(test_loss))
+            print(part_id + part_loss)
+            fd.write(part_id + part_loss)
+
     def end(self):
         # Load the best saved model.
         model = BowVAE(self.args, vocab_size=self.data.vocab_size, n_hidden=self.args.nhid,
@@ -66,13 +79,16 @@ class Runner():
         print(model)
         print(self.args)
         model = model.eval()
+
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test[0], self.data.test[1], self.data.test_batches)
         Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
-
-        os.rename(self.args.save_name + '.model',  self.args.save_name + '_' + str(test_loss.data[0]) +'.model')
-        os.rename(self.args.save_name + '.args',  self.args.save_name + '_' + str(test_loss.data[0])  +'.args')
-
+        cur_loss = cur_loss.data[0]
+        cur_kl = cur_kl.data[0]
+        test_loss = test_loss.data[0]
+        os.rename(self.args.save_name + '.model',  self.args.save_name + '_' + str(test_loss) +'.model')
+        os.rename(self.args.save_name + '.args',  self.args.save_name + '_' + str(test_loss)  +'.args')
+        self.write_board(self.args, cur_loss, cur_kl, test_loss)
         self.writer.close()
 
     @staticmethod
@@ -185,7 +201,7 @@ class Runner():
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
 
-                if cur_kl < 0.02 or cur_kl> 0.8:
+                if cur_kl < 0.14 or cur_kl > 1.2:
                     raise KeyboardInterrupt
 
                 Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time,
@@ -200,7 +216,7 @@ class Runner():
                 word_cnt = 0
                 doc_cnt = 0
                 cnt = 0
-            if idx % (4 * args.log_interval) == 0 and idx > 0:
+            if idx % (5 * args.log_interval) == 0 and idx > 0:
                 self.eval_interface()
 
     def eval_interface(self):
@@ -220,10 +236,10 @@ class Runner():
         else:
             self.dead_cnt += 1
             self.args.cur_lr /= 1.1
-        if self.glob_iter > 1000 and val_loss > 7.2:
-            raise KeyboardInterrupt
+        # if self.glob_iter > 1000:
+        #     raise KeyboardInterrupt
 
-        if self.dead_cnt == 5:
+        if self.dead_cnt == 7:
             raise KeyboardInterrupt
 
     def evaluate(self, args, model, corpus_dev, corpus_dev_cnt, dev_batches):
