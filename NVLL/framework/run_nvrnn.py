@@ -2,7 +2,7 @@ import logging
 import math
 import random
 import time
-
+from NVLL.util.util import anneal_list
 import torch
 
 from NVLL.model.nvrnn import RNNVAE
@@ -37,7 +37,7 @@ class Runner():
         logging.info("Model {}".format(self.model))
         try:
             for epoch in range(1, self.args.epochs + 1):
-                self.args.kl_weight = schedule(epoch)
+                self.args.kl_weight = schedule(epoch,self.args.anneal)
 
                 epoch_start_time = time.time()
 
@@ -83,7 +83,7 @@ class Runner():
         model = model.eval()
         print(model)
         print(self.args)
-
+        print("Anneal Type: {}".format(anneal_list[self.args.anneal]))
         train_loss, train_kl, train_total_loss = self.evaluate(self.args, model,
                                                                self.data.train)
 

@@ -322,9 +322,6 @@ class ExpAnalyzer():
         self.write_samples(sample_bag)
         cur_loss = acc_loss[0] / all_cnt
         cur_kl = acc_kl_loss[0] / all_cnt
-        cur_aux_loss = acc_aux_loss[0] / all_cnt
-        cur_avg_cos = acc_avg_cos[0] / cnt
-        cur_avg_norm = acc_avg_norm[0] / cnt
         cur_real_loss = cur_loss + cur_kl
         return cur_loss, cur_kl, cur_real_loss
 
@@ -374,21 +371,33 @@ class ExpAnalyzer():
         return bag
 
     def analysis_eval_order(self, feed, batch, bit):
-        assert 0.3 > self.args.swap > 0.0001
+        assert 0.33 > self.args.swap > 0.0001
         origin_feed = feed.clone()
 
         feed_1x = swap_by_batch(feed.clone(), self.args.swap)
         feed_2x = swap_by_batch(feed.clone(), self.args.swap * 2)
         feed_3x = swap_by_batch(feed.clone(), self.args.swap * 3)
-
+        feed_4x = swap_by_batch(feed.clone(), self.args.swap * 4)
+        feed_5x = swap_by_batch(feed.clone(), self.args.swap * 5)
+        feed_6x = swap_by_batch(feed.clone(), self.args.swap * 6)
         target = GVar(batch)
 
         # recon_loss, kld, aux_loss, tup, vecs, decoded = self.model(feed, target, bit)
         original_recon_loss, kld, _, original_tup, original_vecs, _ = self.model(origin_feed, target, bit)
-        original_mu = original_tup['mu']
+        if 'Distnor' in self.instance_name:
+            key_name = "mean"
+        elif 'vmf' in self.instance_name:
+            key_name = "mu"
+        else:
+            raise NotImplementedError
+
+        original_mu = original_tup[key_name]
         recon_loss_1x, _, _, tup_1x, vecs_1x, _ = self.model(feed_1x, target, bit)
         recon_loss_2x, _, _, tup_2x, vecs_2x, _ = self.model(feed_2x, target, bit)
         recon_loss_3x, _, _, tup_3x, vecs_3x, _ = self.model(feed_3x, target, bit)
+        recon_loss_4x, _, _, tup_4x, vecs_4x, _ = self.model(feed_4x, target, bit)
+        recon_loss_5x, _, _, tup_5x, vecs_5x, _ = self.model(feed_5x, target, bit)
+        recon_loss_6x, _, _, tup_6x, vecs_6x, _ = self.model(feed_6x, target, bit)
 
         # target: seq_len, batchsz
         # decoded: seq_len, batchsz, dict_sz
@@ -398,20 +407,24 @@ class ExpAnalyzer():
         # cos_1x = self.analyze_batch_order(original_vecs, vecs_1x).data
         # cos_2x = self.analyze_batch_order(original_vecs, vecs_2x).data
         # cos_3x = self.analyze_batch_order(original_vecs, vecs_3x).data
-        cos_1x = torch.mean(cos(original_mu, tup_1x["mu"])).data
-        cos_2x = torch.mean(cos(original_mu, tup_2x["mu"])).data
-        cos_3x = torch.mean(cos(original_mu, tup_3x["mu"])).data
+        cos_1x = torch.mean(cos(original_mu, tup_1x[key_name])).data
+        cos_2x = torch.mean(cos(original_mu, tup_2x[key_name])).data
+        cos_3x = torch.mean(cos(original_mu, tup_3x[key_name])).data
+        cos_4x = torch.mean(cos(original_mu, tup_4x[key_name])).data
+        cos_5x = torch.mean(cos(original_mu, tup_5x[key_name])).data
+        cos_6x = torch.mean(cos(original_mu, tup_6x[key_name])).data
         # print(cos_1x, cos_2x, cos_3x)
         return [
-            [original_recon_loss.data, recon_loss_1x.data, recon_loss_2x.data, recon_loss_3x.data]
-            , [cos_1x, cos_2x, cos_3x]]
+            [original_recon_loss.data, recon_loss_1x.data, recon_loss_2x.data, recon_loss_3x.data, recon_loss_4x.data,
+             recon_loss_5x.data, recon_loss_6x.data]
+            , [cos_1x, cos_2x, cos_3x, cos_4x, cos_5x, cos_6x]]
 
     def unpack_bag_order(self, sample_bag):
         import numpy as np
         l = len(sample_bag)
         print("Total {} batches".format(l))
-        acc_loss = np.asarray([0, 0, 0, 0])
-        acc_cos = np.asarray([0., 0., 0.])
+        acc_loss = np.asarray([0, 0, 0, 0,0, 0 , 0, 0])
+        acc_cos = np.asarray([0., 0., 0.,0 , 0, 0])
         acc_cnt = 0
         # print(sample_bag)
         for b in sample_bag:
@@ -431,10 +444,12 @@ class ExpAnalyzer():
         acc_cos = [x / acc_cnt for x in acc_cos]
         instance.logger.info("-" * 50)
         instance.logger.info(
-            "Origin Loss|1x|2x|3x:\t{}\t{}\t{}\t{}\n".format(acc_loss[0], acc_loss[1], acc_loss[2], acc_loss[3]))
+            "Origin Loss|1x|2x|3x|4x:\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(acc_loss[0], acc_loss[1], acc_loss[2], acc_loss[3], acc_loss[4],
+                                                                acc_loss[5],acc_loss[6]))
+
         instance.logger.info(
-            "Cos 1x|2x|3x:\t{}\t{}\t{}\n".format(acc_cos[0], acc_cos[1], acc_cos[2]))
-        return acc_cos, acc_cos
+            "Cos   1x|2x|3x|4x|5x|6x:\t{}\t{}\t{}\t{}\t{}\t{}\n".format(acc_cos[0],acc_cos[1],acc_cos[2],acc_cos[3],acc_cos[4],acc_cos[5] ))
+        return acc_cos, acc_loss
 
     def unpack_bag_word_importance(self, sample_bag):
         for b in sample_bag:
@@ -450,7 +465,7 @@ class ExpAnalyzer():
         start_time = time.time()
         test_batches = self.data.test
         random.shuffle(test_batches)
-        test_batches = test_batches[:50]
+        test_batches = test_batches[:100]
         self.logger.info("Total {} batches to analyze".format(len(test_batches)))
         acc_loss = 0
         acc_kl_loss = 0
@@ -641,14 +656,21 @@ if __name__ == '__main__':
                            mix_unk=args.mix_unk,
                            swap=args.swap, replace=args.replace,
                            cd_bow=args.cd_bow, cd_bit=args.cd_bit)
-    cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
-    # instance.analysis_evaluation_order_and_importance()
-    # instance.logger.info("{}\t{}\t{}".format(cur_loss, cur_kl, cur_real_loss))
+    # cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
 
+    # instance.logger.info("{}\t{}\t{}".format(cur_loss, cur_kl, cur_real_loss))
+    # print(cur_loss, cur_kl, cur_real_loss, numpy.math.exp(cur_real_loss))
     # with open(os.path.join(args.exp_path,args.board),'a' )as fd:
     #     fd.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
     #         args.data_path, args.instance_name, args.mix_unk,
     #         args.swap, args.replace ,args.cd_bow,args.cd_bit,cur_loss,cur_kl, cur_real_loss,
     #         numpy.math.exp(cur_real_loss)))
 
-    "--data_path data/yelp --swap 0 --replace 0 --cd_bit 50 --root_path /home/cc/vae_txt --exp_path /home/cc/save-nvrnn --instance_name   Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa200.0_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow0_4.9021353610814655   --cd_bow 	0   --mix_unk   1"
+    acc_cos, acc_loss = instance.analysis_evaluation_order_and_importance()
+    with open(os.path.join(args.exp_path,args.board),'a' )as fd:
+        fd.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+            args.data_path, args.instance_name, args.mix_unk,
+            args.swap, args.replace ,args.cd_bow,args.cd_bit,
+            acc_loss[0], acc_loss[1], acc_loss[2], acc_loss[3], acc_cos[0], acc_cos[1], acc_cos[2]))
+
+    # "--data_path data/yelp --swap 0 --replace 0 --cd_bit 50 --root_path /home/cc/vae_txt --exp_path /home/cc/save-nvrnn --instance_name   Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa200.0_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow0_4.9021353610814655   --cd_bow 	0   --mix_unk   1"

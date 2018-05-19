@@ -25,6 +25,7 @@ class RNNVAE(nn.Module):
         self.FLAG_train = True
         self.args = args
         self.enc_type = enc_type
+        print("Enc type: {}".format(enc_type))
         try:
             self.bi = args.bi
         except AttributeError:
@@ -62,7 +63,7 @@ class RNNVAE(nn.Module):
             _inp_dim = ninp
             if input_cd_bit>1:
                 _inp_dim += int(input_cd_bit)
-            if enc_type == 'lstm' or 'gru':
+            if (enc_type == 'lstm') or (enc_type =='gru'):
                 if enc_type == 'lstm':
                     _factor *= 2
                     self.enc_rnn = nn.LSTM(_inp_dim, nhid, 1, bidirectional=self.bi, dropout=dropout)
@@ -77,7 +78,8 @@ class RNNVAE(nn.Module):
 
                 self.enc = self.rnn_funct
             elif enc_type == 'bow':
-                self.enc = nn.Linear(ninp, nhid)
+                self.enc = self.bow_funct
+                self.hid4_to_lat = nn.Linear(ninp, nhid)
             else:
                 raise NotImplementedError
         elif self.dist_type == 'zero':
@@ -123,6 +125,13 @@ class RNNVAE(nn.Module):
             self.decoder_out.weight = self.emb.weight
 
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
+
+    def bow_funct(self, x):
+        y = torch.mean(x,dim=0)
+
+        y = self.hid4_to_lat(y)
+        y = torch.nn.functional.tanh(y)
+        return y
 
     def rnn_funct(self, x):
         batch_sz = x.size()[1]
@@ -230,6 +239,7 @@ class RNNVAE(nn.Module):
             bit = bit.unsqueeze(0).expand(seq_len,batch_sz,-1)
             inp = torch.cat([inp, bit], dim=2)
         h = self.enc(inp)
+        # print(h.size())
         return h
 
     def forward_build_lat(self, hidden):

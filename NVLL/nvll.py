@@ -34,13 +34,13 @@ def set_save_name_log_nvdm(args):
 def set_save_name_log_nvrnn(args):
     args.save_name = os.path.join(
          args.exp_path, 'Data{}_' \
-                                       'Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}_cdbit{}_cdbow{}'
+                                       'Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}_cdbit{}_cdbow{}_ann{}'
             .format(
             args.data_name, str(args.dist), args.model, args.enc_type, args.bi,
             args.emsize,
             args.nhid, args.lat_dim, args.lr,
             args.dropout, args.kappa, args.aux_weight, str(args.norm_func), args.nlayers, args.mix_unk, args.input_z,
-            args.cd_bit, args.cd_bow))
+            args.cd_bit, args.cd_bow, args.anneal))
     writer = SummaryWriter(log_dir=args.save_name)
     log_name = args.save_name + '.log'
     logging.basicConfig(filename=log_name, level=logging.INFO)
@@ -67,6 +67,8 @@ def main():
         if args.load is not None:
             model.load_state_dict(torch.load(args.load), strict=False)
         else:
+            print("Auto load temp closed.")
+            """
             files = os.listdir(os.path.join(args.exp_path))
             files = [f for f in files if f.endswith(".model")]
             current_name = "Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}".format(args.data_name, str(args.dist),
@@ -83,7 +85,7 @@ def main():
                         break
                     except RuntimeError:
                         print("Automatic Load failed!")
-
+            """
 
         if torch.cuda.is_available() and GPU_FLAG:
             print("Model in GPU")
@@ -121,6 +123,8 @@ def main():
         if args.load is not None:
             model.load_state_dict(torch.load(args.load), strict=False)
         else:
+            print("Auto load temp closed.")
+            """
             files = os.listdir(os.path.join( args.exp_path))
             files = [f for f in files if f.endswith(".model")]
             current_name = "Data{}_Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}".format(args.data_name, str(args.dist),
@@ -137,7 +141,7 @@ def main():
                         break
                     except RuntimeError:
                         print("Automatic Load failed!")
-
+            """
         if torch.cuda.is_available() and GPU_FLAG:
             model = model.cuda()
         runner = Runner(args, model, data, writer)

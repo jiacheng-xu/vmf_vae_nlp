@@ -201,8 +201,8 @@ class Runner():
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
 
-                if cur_kl < 0.14 or cur_kl > 1.2:
-                    raise KeyboardInterrupt
+                # if cur_kl < 0.14 or cur_kl > 1.2:
+                #     raise KeyboardInterrupt
 
                 Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time,
                                    cur_avg_cos, cur_avg_norm, cur_loss

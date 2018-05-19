@@ -8,7 +8,7 @@ base = "PYTHONPATH=../../ python ../nvll.py --cuda --lr 10.0 --batch_size 20 " \
 path_big = " --exp_path /home/cc/exp-nvrnn --root_path /home/cc/vae_txt  "
 path_eve = " --exp_path /backup2/jcxu/exp-nvrnn --root_path /home/jcxu/vae_txt  "
 path_mav = "--exp_path /work/05235/jcxu/maverick/exp-nvrnn   --root_path /work/05235/jcxu/maverick/vae_txt"
-base = base + path_big
+base = base + path_eve
 
 # RNNLM(zero), nor, vMF
 # condition on NA or Bit(20) or BoW(200)
@@ -18,9 +18,9 @@ bag = []
 for cd_bit in [0]:
     for cd_bow in [0]:
         # for dist in ['zero', 'vmf','nor']:
-        for dist in ['vmf']:
-            for lat_dim in [25]:
-                for mix_unk in [1]:
+        for dist in ['nor']:
+            for lat_dim in [50]:
+                for mix_unk in [0]:
                     if dist == 'vmf':
                         if lat_dim == 100:
                             for kappa in [50,100]:
@@ -29,13 +29,13 @@ for cd_bit in [0]:
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 50:
-                            for kappa in [ 25,50,100]:
+                            for kappa in [5, 20,35,50	,65]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 25:
-                            for kappa in [ 10	,25	,40	,55	,70	,85	,100 , 115, 130, 145]:
+                            for kappa in [5, 20,35,50	,65	]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)

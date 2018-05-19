@@ -6,6 +6,7 @@ random.seed(2018)
 import numpy as np
 
 from NVLL.util.gpu_flag import GPU_FLAG
+anneal_list = ["non","lin","sig"]
 
 def cos(a, b):
     """
@@ -43,9 +44,15 @@ def GVar(x):
     else:
         return torch.autograd.Variable(x).cpu()
 
-def schedule(epo):
-    return float(torch.sigmoid(torch.ones(1) * (epo / 2 - 5)))
-
+def schedule(epo, anneal_code=0):
+    if anneal_code ==0:
+        return 1
+    elif anneal_code == 1:
+        return float(torch.min(torch.ones(1) , torch.ones(1) *epo/ 20))
+    elif anneal_code == 2:
+        return float(torch.sigmoid(torch.ones(1) * (epo / 2 - 5)))
+    else:
+        raise NotImplementedError
 
 class Dictionary(object):
     def __init__(self):

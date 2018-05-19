@@ -2,7 +2,7 @@ base = 'PYTHONPATH=../../ python ../nvll.py --cuda ' \
        '--lr 1 --batch_size 50 --eval_batch_size 50' \
        ' --log_interval 400 --model nvdm --epochs 100  ' \
        '--optim sgd  --clip 1 ' \
-       '--data_path data/rcv --data_name rcv ' \
+       '--data_path data/20ng --data_name 20ng ' \
        ' --dist vmf'
 
 
@@ -18,7 +18,7 @@ for drop in [0.1]:
             for aux in [ 0.0001]:
                 # for dist in ['unifvmf', 'vmf']:
                 for dist in ['vmf']:
-                    for lat_dim in [25,50,200]:
+                    for lat_dim in [50]:
                         if lat_dim == 25:
                             for kappa in [50,100]:
                                 tmp = base + ' --dropout {} --emsize {} --nhid {} ' \
@@ -28,7 +28,7 @@ for drop in [0.1]:
                                 print(tmp)
                                 bag.append(tmp)
                         elif lat_dim == 50:
-                            for kappa in [50,100,150]:
+                            for kappa in [35,50,65,80,95, 110,125]:
                                 tmp = base + ' --dropout {} --emsize {} --nhid {} ' \
                                              '--aux_weight {} --dist {} --kappa {} --lat_dim {}' \
                                              ' '.format \
@@ -48,7 +48,7 @@ for drop in [0.1]:
 print(len(bag))
 
 cnt_gpu = 4
-per_gpu = 2
+per_gpu = 1
 divid_pieces = cnt_gpu * per_gpu
 
 import random
