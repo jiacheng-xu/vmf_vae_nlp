@@ -2,7 +2,7 @@ base = "PYTHONPATH=../../ python ../nvll.py --cuda --lr 10.0 --batch_size 20 " \
        "--eval_batch_size 20 --log_interval 500 --model nvrnn --epochs 80  " \
        "--optim sgd --data_name ptb --data_path data/ptb --clip 0.25 " \
        "--input_z --dropout 0.5 --emsize 100 --aux_weight 0.0001 " \
-       "  --swap 0.0 --replace 0.0 --lat_dim 50 " \
+       "  --swap 0.0 --replace 0.0  " \
        " "
 
 path_eve = " --exp_path /backup2/jcxu/exp-nvrnn --root_path /home/jcxu/vae_txt  "
@@ -13,27 +13,29 @@ base = base + path_eve
 # for vmf, kappa=16,32,64,128 when lat=32
 
 bag = []
-for enc in ['bow','gru','lstm']:
-    for dec in ['  --nlayers 1 --nhid 400 ','  --nlayers 3 --nhid 400 ' ]:
-        for anneal in [0,2]:
-            for mix_unk in [1]:
-                tmp = base + " --enc_type {}  --dist nor   {}   --mix_unk {} --anneal {}". \
-                    format(enc, dec, mix_unk, anneal)
-                bag.append(tmp)
-                print(tmp)
+# for enc in ['bow','gru','lstm']:
+#     for dec in ['  --nlayers 1 --nhid 400 ','  --nlayers 3 --nhid 400 ' ]:
+#         for anneal in [0,2]:
+#             for mix_unk in [0]:
+#                 tmp = base + " --lat_dim 50  --enc_type {}  --dist nor   {}   --mix_unk {} --anneal {}". \
+#                     format(enc, dec, mix_unk, anneal)
+#                 bag.append(tmp)
+#                 print(tmp)
+
 for enc in ['bow','gru','lstm']:
     for dec in ['  --nlayers 1 --nhid 400 ','  --nlayers 3 --nhid 400 ' ]:
         for anneal in [0]:
             for mix_unk in [1]:
-                tmp = base + " --enc_type {}  --dist vmf  {}   --mix_unk {} --anneal {}". \
-                    format(enc, dec, mix_unk, anneal)
-                bag.append(tmp)
-                print(tmp)
+                for kappa in [15,30,45,60,75]:
+                    tmp = base + "--lat_dim 15 --enc_type {}  --dist vmf  {}   --mix_unk {} --anneal {} --kappa {}". \
+                        format(enc, dec, mix_unk, anneal,kappa)
+                    bag.append(tmp)
+                    print(tmp)
 
 print(len(bag))
 
 cnt_gpu = 3
-per_gpu = 3
+per_gpu = 2
 divid_pieces = cnt_gpu * per_gpu
 
 import random

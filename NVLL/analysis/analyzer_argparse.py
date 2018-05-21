@@ -19,5 +19,8 @@ def parse_arg():
     parser.add_argument('--cd_bow', action='store', default=0, type=int)
     parser.add_argument('--cd_bit', action='store', default=0, type=int)
     parser.add_argument('--temp',action='store',default=1, type=float)
+
+    parser.add_argument('--split',action='store',default=0,type=int)
+
     args = parser.parse_args()
     return args

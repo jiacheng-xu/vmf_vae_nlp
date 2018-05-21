@@ -51,6 +51,10 @@ def schedule(epo, anneal_code=0):
         return float(torch.min(torch.ones(1) , torch.ones(1) *epo/ 20))
     elif anneal_code == 2:
         return float(torch.sigmoid(torch.ones(1) * (epo / 2 - 5)))
+    elif anneal_code == 3:
+        return 0.5
+    elif anneal_code ==4:
+        return 0.2
     else:
         raise NotImplementedError
 

@@ -656,7 +656,7 @@ if __name__ == '__main__':
                            mix_unk=args.mix_unk,
                            swap=args.swap, replace=args.replace,
                            cd_bow=args.cd_bow, cd_bit=args.cd_bit)
-    # cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
+    cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation()
 
     # instance.logger.info("{}\t{}\t{}".format(cur_loss, cur_kl, cur_real_loss))
     # print(cur_loss, cur_kl, cur_real_loss, numpy.math.exp(cur_real_loss))

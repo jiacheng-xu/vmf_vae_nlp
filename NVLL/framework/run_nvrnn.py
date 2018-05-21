@@ -59,7 +59,7 @@ class Runner():
                 else:
                     self.dead_cnt += 1
                     self.args.cur_lr /= 1.2
-                if self.dead_cnt == 7:
+                if self.dead_cnt == 15:
                     raise KeyboardInterrupt
                     # if epoch == 1 and math.exp(best_val_loss) >= 600:
                     #     raise KeyboardInterrupt
@@ -83,7 +83,7 @@ class Runner():
         model = model.eval()
         print(model)
         print(self.args)
-        print("Anneal Type: {}".format(anneal_list[self.args.anneal]))
+        # print("Anneal Type: {}".format(anneal_list[self.args.anneal]))
         train_loss, train_kl, train_total_loss = self.evaluate(self.args, model,
                                                                self.data.train)
 

@@ -103,7 +103,7 @@ def main():
         from NVLL.data.lm import DataLM
         from NVLL.model.nvrnn import RNNVAE
         from NVLL.framework.run_nvrnn import Runner
-        if args.data_name == 'ptb':
+        if (args.data_name == 'ptb') or (args.data_name == 'trec') or (args.data_name == 'yelp_sent'):
             data = DataLM(os.path.join(args.root_path, args.data_path),
                           args.batch_size,
                           args.eval_batch_size,
