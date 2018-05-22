@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from NVLL.distribution.gauss import Gauss
-from NVLL.distribution.vmf_batch import vMF     # TODO
+from NVLL.distribution.vmf_batch import vMF  # TODO
 from NVLL.distribution.vmf_unif import unif_vMF
 from NVLL.util.util import GVar
 from NVLL.util.util import check_dispersion
@@ -61,16 +61,16 @@ class RNNVAE(nn.Module):
         if self.dist_type == 'nor' or 'vmf' or 'sph' or 'unifvmf':
             _factor = 1
             _inp_dim = ninp
-            if input_cd_bit>1:
+            if input_cd_bit > 1:
                 _inp_dim += int(input_cd_bit)
-            if (enc_type == 'lstm') or (enc_type =='gru'):
+            if (enc_type == 'lstm') or (enc_type == 'gru'):
                 if enc_type == 'lstm':
                     _factor *= 2
                     self.enc_rnn = nn.LSTM(_inp_dim, nhid, 1, bidirectional=self.bi, dropout=dropout)
                 elif enc_type == 'gru':
                     self.enc_rnn = nn.GRU(_inp_dim, nhid, 1, bidirectional=self.bi, dropout=dropout)
                 else:
-                    raise  NotImplementedError
+                    raise NotImplementedError
                 if self.bi:
                     _factor *= 2
 
@@ -98,8 +98,8 @@ class RNNVAE(nn.Module):
             pass
         elif args.dist == 'unifvmf':
             self.dist = unif_vMF(nhid, lat_dim,
-                                 kappa=self.args.kappa,
-                                 norm_func=self.args.norm_func)
+                                 kappa=self.args.kappa, norm_max=self.args.norm_max
+                                 )
         else:
             raise NotImplementedError
 
@@ -127,7 +127,7 @@ class RNNVAE(nn.Module):
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
 
     def bow_funct(self, x):
-        y = torch.mean(x,dim=0)
+        y = torch.mean(x, dim=0)
 
         y = self.hid4_to_lat(y)
         y = torch.nn.functional.tanh(y)
@@ -220,7 +220,7 @@ class RNNVAE(nn.Module):
 
     def enc_bow(self, emb):
         if self.input_cd_bow > 1:
-            x = self.nn_bow(torch.mean(emb,dim=0))
+            x = self.nn_bow(torch.mean(emb, dim=0))
             return x
         else:
             return None
@@ -233,10 +233,10 @@ class RNNVAE(nn.Module):
         """
         seq_len, batch_sz = inp.size()[0:2]
         # emb = self.drop(self.emb(inp))  # seq, batch, inp_dim
-        if self.dist_type =='zero':
+        if self.dist_type == 'zero':
             return torch.zeros(batch_sz)
         if bit is not None:
-            bit = bit.unsqueeze(0).expand(seq_len,batch_sz,-1)
+            bit = bit.unsqueeze(0).expand(seq_len, batch_sz, -1)
             inp = torch.cat([inp, bit], dim=2)
         h = self.enc(inp)
         # print(h.size())

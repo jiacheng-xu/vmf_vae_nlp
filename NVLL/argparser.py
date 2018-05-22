@@ -70,6 +70,6 @@ def parse_arg():
 
     parser.add_argument('--board', action='store',default="board.log", type=str)
     parser.add_argument('--anneal',action='store',default=0,type=int)
-
+    parser.add_argument('--norm_max',action='store',default=2,type=float)
     args = parser.parse_args()
     return args

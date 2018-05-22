@@ -57,7 +57,7 @@ for n in range(5):
         tmp.append(y)
     bag.append(tmp)
 
-fig = plt.figure()
+fig = plt.figure(figsize=(5,5))
 ax = fig.add_subplot(111, projection='3d')
 
 (xs,ys,zs) = drawSphere(0,0,0,1)
@@ -148,6 +148,6 @@ ax.zaxis._axinfo["grid"]['color'] =  (1,1,1,0)
 # ax.set_xlabel('X')
 # ax.set_ylabel('Y')
 # ax.set_zlabel('Z')
-fig.set_size_inches(5, 5)
-fig.savefig('gauss.png', dpi=400,transparent=True)
+# fig.set_size_inches(5, 5)
+fig.savefig('gauss.pdf',transparent=True)
 plt.show()

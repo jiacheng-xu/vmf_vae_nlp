@@ -38,14 +38,14 @@ def load_model(args, ntoken, path, name):
 
 def parse_arg():
     parser = argparse.ArgumentParser(description='Transfer experiment')
-    parser.add_argument('--data_path', type=str, default='data/yelp', help='location of the data corpus')
+    parser.add_argument('--data_path', type=str, default='data/ptb', help='location of the data corpus')
     parser.add_argument('--root_path', type=str, default='/home/jcxu/vae_txt')
     parser.add_argument('--model_vmf', type=str,
-                        default="Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa40.0_auxw0.0001_normfFalse_nlay1_mixunk0.0_inpzTrue_cdbit50_cdbow0")
+                        default="Dataptb_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat50_lr10.0_drop0.5_kappa120.0_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit0_cdbow0_ann0_5.891579498848754")
     parser.add_argument('--model_nor', type=str,
                         default=
-                        "Datayelp_Distnor_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa0.1_auxw0.0001_normfFalse_nlay1_mixunk0.0_inpzTrue_cdbit50_cdbow0_4.012214493563234")
-    parser.add_argument('--exp_path', type=str, default='/backup2/jcxu/save-nvrnn')
+                        "Dataptb_Distnor_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat50_lr10.0_drop0.5_kappa0.1_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit0_cdbow0_ann2_5.933433308374706")
+    parser.add_argument('--exp_path', type=str, default='/backup2/jcxu/exp-nvrnn')
     parser.add_argument('--eval_batch_size', type=int, default=10, help='evaluation batch size')
     parser.add_argument('--batch_size', type=int, default=10, help='batch size')
 
@@ -133,7 +133,7 @@ class CodeLearner():
                                 args.exp_path, args.model_run)
         self.learner = Code2Code(self.model.lat_dim, self.model.ninp)
         self.learner.cuda()
-        self.optim = torch.optim.SGD(self.learner.parameters(), lr=0.0001)
+        self.optim = torch.optim.Adam(self.learner.parameters(), lr=0.001)
 
 
     def run_train(self):
@@ -192,8 +192,8 @@ class CodeLearner():
             self.optim.step()
             acc_loss += loss.data[0]
             cnt += 1
-            if idx % 400 == 0:
-                print(acc_loss / cnt)
+            if idx % 400 == 0 and (idx>0):
+                print("Training {}".format(acc_loss / cnt))
                 acc_loss = 0
                 cnt = 0
 
@@ -259,8 +259,8 @@ if __name__ == '__main__':
     # Synthesis data
     bags = []
     for c2b in [True,False]:
-        for nor in [True, False]:
-            learn = CodeLearner(args, condition=True, c2b=c2b, nor=nor)
+        for nor in [True]:
+            learn = CodeLearner(args, condition=False, c2b=c2b, nor=nor)
             result = learn.run_train()
             bags.append("c2b\t{}\tnor\t{}\tresult:{}\n".format(c2b,nor,result))
             print("c2b\t{}\tnor\t{}\tresult:{}".format(c2b,nor,result))

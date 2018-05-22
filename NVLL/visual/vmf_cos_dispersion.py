@@ -27,8 +27,9 @@ for idx, lat_dim in enumerate(x):
         sampled = tmp.sample_cell(mu, None, kappa)
         sampled = sampled.squeeze()
         sim = torch.nn.functional.cosine_similarity(sampled, mu)
-        tab_kl[idx].append(tmp.kld.data[0])
-        tab_sim[idx].append(sim.data[0])
+
+        tab_kl[idx].append(   tmp.kld.item())
+        tab_sim[idx].append(torch.mean(sim).item())
 # for t in tab:
 #     t = [str(x) for x in t]
 #     print("\t".join(t))

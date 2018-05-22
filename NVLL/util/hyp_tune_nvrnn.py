@@ -18,7 +18,7 @@ bag = []
 for cd_bit in [0]:
     for cd_bow in [0]:
         # for dist in ['zero', 'vmf','nor']:
-        for dist in ['nor']:
+        for dist in ['vmf']:
             for lat_dim in [50]:
                 for mix_unk in [1]:
                     if dist == 'vmf':
