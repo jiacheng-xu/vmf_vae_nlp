@@ -1,6 +1,7 @@
 from NVLL.distribution.vmf_only import vMF
+
 # x =[10, 25,50,100,200,400]
-x = [50, 100,150,200,250,300,350,400]
+x = [50, 100, 150, 200, 250, 300, 350, 400]
 import numpy as np
 import torch
 from scipy import special as sp
@@ -13,12 +14,13 @@ def _vmf_kld(k, d):
 
     return str(tmp)
 
+
 tab = [[0 for _ in range(len(x))] for _ in range(len(x))]
 for idx, lat_dim in enumerate(x):
     for jdx, kappa in enumerate(x):
         tab[idx][jdx] = _vmf_kld(kappa, lat_dim)
-color_bank  = ['purple','magenta','pink','red','orange','lime','cyan','blue']
-marker_bank  = ['star','o','|','triangle','x','+','-','square']
+color_bank = ['purple', 'magenta', 'pink', 'red', 'orange', 'lime', 'cyan', 'blue']
+marker_bank = ['star', 'o', '|', 'triangle', 'x', '+', '-', 'square']
 
 for idx in range(len(tab)):
     # lat dim
@@ -26,5 +28,5 @@ for idx in range(len(tab)):
     cont = tab[idx]
     for j in range(len(tab)):
         s += "({},{})".format(x[j], cont[j])
-    s+="};\n"
+    s += "};\n"
     print(s)

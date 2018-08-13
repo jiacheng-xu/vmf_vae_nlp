@@ -105,7 +105,7 @@ class Code2Bit(torch.nn.Module):
         pred = torch.nn.functional.sigmoid(pred)
         pred = self.linear2(pred)
         # print(pred.size())
-        loss = self.loss_func(pred,tgt)
+        loss = self.loss_func(pred, tgt)
         return loss, pred
 
 
@@ -153,12 +153,13 @@ class SentClassifier():
         nsamples, l = tensor.shape
         nbatches = nsamples // batch_sz
         for n in range(nbatches):
-            slice = tensor[n*batch_sz: (n+1)*batch_sz]
-            bit = slice[:,0]
+            slice = tensor[n * batch_sz: (n + 1) * batch_sz]
+            bit = slice[:, 0]
             bit = torch.LongTensor(bit)
-            vec = torch.FloatTensor(slice[:,1:])
+            vec = torch.FloatTensor(slice[:, 1:])
             bag.append([bit, vec])
         return bag
+
     def run_train(self):
         valid_acc = []
         for e in range(50):
@@ -190,7 +191,7 @@ class SentClassifier():
             vec = GVar(vec)
             # print(bit)
             loss, pred = self.learner(vec, bit)
-            _ , argmax = torch.max(pred, dim=1)
+            _, argmax = torch.max(pred, dim=1)
             loss.backward()
             self.optim.step()
 
@@ -198,14 +199,14 @@ class SentClassifier():
             bit = bit.data
             for jdx, num in enumerate(argmax):
                 gt = bit[jdx]
-                all_cnt+=1
+                all_cnt += 1
                 if gt == num:
                     acc_accuracy += 1
 
             acc_loss += loss.data[0]
             cnt += 1
             if idx % 400 == 0:
-                print("Loss {}  \tAccuracy {}".format(acc_loss / cnt, acc_accuracy/all_cnt))
+                print("Loss {}  \tAccuracy {}".format(acc_loss / cnt, acc_accuracy / all_cnt))
                 acc_loss = 0
                 cnt = 0
 

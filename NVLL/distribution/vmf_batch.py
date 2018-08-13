@@ -117,7 +117,7 @@ class vMF(torch.nn.Module):
         assert _lat_dim == dim
         squeezed_mu = mu.unsqueeze(1)
 
-        v = GVar(torch.randn(_batch_sz, dim, 1))        #TODO random
+        v = GVar(torch.randn(_batch_sz, dim, 1))  # TODO random
 
         # v = GVar(torch.linspace(-1, 1, steps=dim))
         # v = v.expand(_batch_sz, dim).unsqueeze(2)
@@ -132,7 +132,7 @@ class vMF(torch.nn.Module):
     def _sample_orthonormal_to(self, mu, dim):
         """Sample point on sphere orthogonal to mu.
         """
-        v = GVar(torch.randn(dim))      # TODO random
+        v = GVar(torch.randn(dim))  # TODO random
 
         # v = GVar(torch.linspace(-1,1,steps=dim))
 
@@ -141,7 +141,6 @@ class vMF(torch.nn.Module):
         ortho = v - proj_mu_v
         ortho_norm = torch.norm(ortho)
         return ortho / ortho_norm.expand_as(ortho)
-
 
 # vmf = vMF_fast(50, 100, 100)
 # batchsz = 100

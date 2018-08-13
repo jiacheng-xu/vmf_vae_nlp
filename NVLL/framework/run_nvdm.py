@@ -55,7 +55,7 @@ class Runner():
             print('Exiting from training early')
 
     @staticmethod
-    def write_board(args,  cur_loss, cur_kl, test_loss):
+    def write_board(args, cur_loss, cur_kl, test_loss):
         from datetime import datetime
         with open(os.path.join(args.exp_path, args.board), 'a') as fd:
             part_id = str(datetime.utcnow()) + "\t"
@@ -86,8 +86,8 @@ class Runner():
         cur_loss = cur_loss.data[0]
         cur_kl = cur_kl.data[0]
         test_loss = test_loss.data[0]
-        os.rename(self.args.save_name + '.model',  self.args.save_name + '_' + str(test_loss) +'.model')
-        os.rename(self.args.save_name + '.args',  self.args.save_name + '_' + str(test_loss)  +'.args')
+        os.rename(self.args.save_name + '.model', self.args.save_name + '_' + str(test_loss) + '.model')
+        os.rename(self.args.save_name + '.args', self.args.save_name + '_' + str(test_loss) + '.args')
         self.write_board(self.args, cur_loss, cur_kl, test_loss)
         self.writer.close()
 

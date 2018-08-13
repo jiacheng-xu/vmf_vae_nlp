@@ -15,7 +15,6 @@ def forward_decode_fly(self, emb, lat_code):
         pass
 
 
-
 def forward_decode(self, args, input, ntokens):
     """
 
@@ -76,7 +75,6 @@ def forward_decode(self, args, input, ntokens):
         outputs[t] = ind.squeeze(1).data
 
     return outputs_prob, outputs, mu, logvar
-
 
     def reparameterize(self, mu, logvar):
         if self.training:

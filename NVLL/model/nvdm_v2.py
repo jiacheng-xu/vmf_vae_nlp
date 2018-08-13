@@ -1,4 +1,5 @@
 import random
+
 random.seed(2018)
 import torch
 

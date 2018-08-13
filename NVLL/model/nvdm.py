@@ -1,4 +1,5 @@
 import random
+
 random.seed(2018)
 import torch
 
@@ -39,6 +40,7 @@ class BowVAE(torch.nn.Module):
 
         self.dec_vec = torch.nn.Linear(self.n_lat, self.n_hidden)
         self.out = torch.nn.Linear(self.n_hidden, self.vocab_size)
+
     def forward(self, x):
         batch_sz = x.size()[0]
 
@@ -69,7 +71,7 @@ class BowVAE(torch.nn.Module):
         logit = logit.view(self.n_sample, batch_sz, self.vocab_size)
         flatten_x = x.unsqueeze(0).expand(self.n_sample, batch_sz, self.vocab_size)
         error = torch.mul(flatten_x, logit)
-        error  = torch.mean(error,dim=0)
+        error = torch.mean(error, dim=0)
 
         # ys = 0
         #

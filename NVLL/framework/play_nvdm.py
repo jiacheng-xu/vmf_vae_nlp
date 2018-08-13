@@ -8,12 +8,13 @@ import numpy
 import scipy
 import torch
 
-from  NVLL.data.ng import DataNg
+from NVLL.data.ng import DataNg
 from NVLL.framework.run_nvdm import Runner
 from NVLL.model.nvdm import BowVAE
 from NVLL.util.util import GVar
 
 random.seed(2018)
+
 
 class PlayNVDM():
     def __init__(self, load_path, load_name, data_path):

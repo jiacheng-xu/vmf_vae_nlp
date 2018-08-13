@@ -2,6 +2,8 @@ import torch.nn as nn
 import torch
 import numpy as np
 from NVLL.util.gpu_flag import GPU_FLAG
+
+
 class Gauss(nn.Module):
     # __slots__ = ['lat_dim', 'logvar', 'mean']
 

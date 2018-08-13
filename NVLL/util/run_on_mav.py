@@ -19,23 +19,23 @@ for cd_bit in [0]:
     for cd_bow in [0]:
         # for dist in ['zero', 'vmf','nor']:
         for dist in ['vmf']:
-            for lat_dim in [25,50,100]:
+            for lat_dim in [25, 50, 100]:
                 for mix_unk in [1]:
                     if dist == 'vmf':
                         if lat_dim == 100:
-                            for kappa in [50,100,150,200]:
+                            for kappa in [50, 100, 150, 200]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 50:
-                            for kappa in [ 25,50,100, 150]:
+                            for kappa in [25, 50, 100, 150]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 25:
-                            for kappa in [ 15,25,50,75,100]:
+                            for kappa in [15, 25, 50, 75, 100]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)

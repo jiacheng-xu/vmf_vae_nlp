@@ -27,7 +27,7 @@ class vMF(torch.nn.Module):
 
         norm = torch.norm(mu, 2, 1, keepdim=True)
         mu_norm_sq_diff_from_one = torch.pow(torch.add(norm, -1), 2)
-        redundant_norm = torch.sum(mu_norm_sq_diff_from_one,dim=1, keepdim=True)
+        redundant_norm = torch.sum(mu_norm_sq_diff_from_one, dim=1, keepdim=True)
         ret_dict['norm'] = torch.ones_like(mu)
         ret_dict['redundant_norm'] = redundant_norm
 
@@ -36,7 +36,7 @@ class vMF(torch.nn.Module):
 
         return ret_dict
 
-    def compute_KLD(self, tup,batch_sz):
+    def compute_KLD(self, tup, batch_sz):
         return self.kld.expand(batch_sz)
 
     @staticmethod

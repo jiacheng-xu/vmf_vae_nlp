@@ -2,11 +2,14 @@ from collections import OrderedDict
 from operator import itemgetter
 import torch
 import random
+
 random.seed(2018)
 import numpy as np
 
 from NVLL.util.gpu_flag import GPU_FLAG
-anneal_list = ["non","lin","sig"]
+
+anneal_list = ["non", "lin", "sig"]
+
 
 def cos(a, b):
     """
@@ -17,7 +20,8 @@ def cos(a, b):
     """
     return torch.dot(a, b) / (torch.norm(a) * torch.norm(b))
 
-def check_dispersion(vecs,num_sam = 10):
+
+def check_dispersion(vecs, num_sam=10):
     """
     Check the dispersion of vecs.
     :param vecs:  [n_samples, batch_sz, lat_dim]
@@ -26,7 +30,7 @@ def check_dispersion(vecs,num_sam = 10):
     """
     # vecs: n_samples, batch_sz, lat_dim
     if vecs.size(1) <= 2:
-        return  GVar(torch.zeros(1))
+        return GVar(torch.zeros(1))
     cos_sim = 0
     for i in range(num_sam):
         idx1 = random.randint(0, vecs.size(1) - 1)
@@ -44,19 +48,21 @@ def GVar(x):
     else:
         return torch.autograd.Variable(x).cpu()
 
+
 def schedule(epo, anneal_code=0):
-    if anneal_code ==0:
+    if anneal_code == 0:
         return 1
     elif anneal_code == 1:
-        return float(torch.min(torch.ones(1) , torch.ones(1) *epo/ 20))
+        return float(torch.min(torch.ones(1), torch.ones(1) * epo / 20))
     elif anneal_code == 2:
         return float(torch.sigmoid(torch.ones(1) * (epo / 2 - 5)))
     elif anneal_code == 3:
         return 0.5
-    elif anneal_code ==4:
+    elif anneal_code == 4:
         return 0.2
     else:
         raise NotImplementedError
+
 
 class Dictionary(object):
     def __init__(self):
@@ -90,18 +96,20 @@ class Dictionary(object):
         with open(file_name, 'w') as f:
             f.write(wt_string)
 
+
 def swap_by_batch(inp, ratio):
     seq_len, batchsz = inp.size()
     for t in range(seq_len):
         if random.random() < ratio:
-            rand_candidate = random.randint(0,seq_len-1)
-            a = inp[rand_candidate,:].data.clone()
-            b = inp[t,:].data.clone()
+            rand_candidate = random.randint(0, seq_len - 1)
+            a = inp[rand_candidate, :].data.clone()
+            b = inp[t, :].data.clone()
             inp[rand_candidate] = b
             inp[t] = a
     return inp
 
-def replace_by_batch( inp, ratio, ntokens):
+
+def replace_by_batch(inp, ratio, ntokens):
     seq_len, batchsz = inp.size()
     for t in range(seq_len):
         if random.random() < ratio:
@@ -111,7 +119,7 @@ def replace_by_batch( inp, ratio, ntokens):
     return inp
 
 
-def replace_by_batch_with_unk( inp, ratio):
+def replace_by_batch_with_unk(inp, ratio):
     seq_len, batchsz = inp.size()
     for t in range(seq_len):
         if random.random() < ratio:

@@ -5,7 +5,6 @@ base = 'PYTHONPATH=../../ python ../nvll.py --cuda ' \
        '--data_path data/20ng --data_name 20ng ' \
        ' --dist vmf'
 
-
 path_big = " --exp_path /home/cc/exp-nvdm --root_path /home/cc/vae_txt  "
 path_eve = " --exp_path /backup2/jcxu/exp-nvdm --root_path /home/jcxu/vae_txt  "
 
@@ -15,12 +14,12 @@ bag = []
 for drop in [0.1]:
     for emsize in [400]:
         for nhid in [800]:
-            for aux in [ 0.0001]:
+            for aux in [0.0001]:
                 # for dist in ['unifvmf', 'vmf']:
                 for dist in ['vmf']:
                     for lat_dim in [50]:
                         if lat_dim == 25:
-                            for kappa in [50,100]:
+                            for kappa in [50, 100]:
                                 tmp = base + ' --dropout {} --emsize {} --nhid {} ' \
                                              '--aux_weight {} --dist {} --kappa {} --lat_dim {}' \
                                              ' '.format \
@@ -28,7 +27,7 @@ for drop in [0.1]:
                                 print(tmp)
                                 bag.append(tmp)
                         elif lat_dim == 50:
-                            for kappa in [35,50,65,80,95, 110,125]:
+                            for kappa in [35, 50, 65, 80, 95, 110, 125]:
                                 tmp = base + ' --dropout {} --emsize {} --nhid {} ' \
                                              '--aux_weight {} --dist {} --kappa {} --lat_dim {}' \
                                              ' '.format \
@@ -36,14 +35,13 @@ for drop in [0.1]:
                                 print(tmp)
                                 bag.append(tmp)
                         elif lat_dim == 200:
-                            for kappa in [50,100,150]:
+                            for kappa in [50, 100, 150]:
                                 tmp = base + ' --dropout {} --emsize {} --nhid {} ' \
                                              '--aux_weight {} --dist {} --kappa {} --lat_dim {}' \
                                              ' '.format \
                                     (drop, emsize, nhid, aux, dist, kappa, lat_dim)
                                 print(tmp)
                                 bag.append(tmp)
-
 
 print(len(bag))
 

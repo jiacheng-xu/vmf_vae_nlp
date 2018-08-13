@@ -18,10 +18,10 @@ class DataNg():
         self.test_batches = DataNg.create_batches(len(self.test[0]), args.eval_batch_size, shuffle=True)
         self.dev_batches = DataNg.create_batches(len(self.dev[0]), args.eval_batch_size, shuffle=True)
         self.read_vocab(os.path.join(args.root_path,
-                                     args.data_path,'vocab.new'))
+                                     args.data_path, 'vocab.new'))
 
     def read_vocab(self, path):
-        with open(path,'r') as fd:
+        with open(path, 'r') as fd:
             lines = fd.read().splitlines()
             self.vocab_size = len(lines)
             print("Vocab size: {}".format(len(lines)))

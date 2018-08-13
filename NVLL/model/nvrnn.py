@@ -45,7 +45,6 @@ class RNNVAE(nn.Module):
         # zero = no encoder and VAE, use 0 as start of decoding;
         #  sph = encode word embedding as bow and project to a unit sphere
 
-
         # VAE shared param
         self.drop = nn.Dropout(dropout)  # Need explicit dropout
         self.emb = nn.Embedding(ntoken, ninp)

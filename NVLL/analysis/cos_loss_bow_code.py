@@ -135,7 +135,6 @@ class CodeLearner():
         self.learner.cuda()
         self.optim = torch.optim.Adam(self.learner.parameters(), lr=0.001)
 
-
     def run_train(self):
         valid_acc = []
         for e in range(10):
@@ -144,6 +143,7 @@ class CodeLearner():
             acc = self.evaluate(self.data.test)
             valid_acc.append(acc)
         return min(valid_acc)
+
     def train_epo(self, train_batches):
         self.learner.train()
         print("Epo start")
@@ -192,7 +192,7 @@ class CodeLearner():
             self.optim.step()
             acc_loss += loss.data[0]
             cnt += 1
-            if idx % 400 == 0 and (idx>0):
+            if idx % 400 == 0 and (idx > 0):
                 print("Training {}".format(acc_loss / cnt))
                 acc_loss = 0
                 cnt = 0
@@ -243,13 +243,13 @@ class CodeLearner():
             acc_loss += loss.data[0]
             cnt += 1
             if idx % 400 == 0:
-
                 acc_loss = 0
                 cnt = 0
         # print("===============test===============")
         # print(acc_loss / cnt)
         print(acc_loss / cnt)
         return float(acc_loss / cnt)
+
 
 if __name__ == '__main__':
     print("Transfer btw Learnt Code and learnt BoW. "
@@ -258,13 +258,13 @@ if __name__ == '__main__':
     # t = Transfer(args)
     # Synthesis data
     bags = []
-    for c2b in [True,False]:
+    for c2b in [True, False]:
         for nor in [True]:
             learn = CodeLearner(args, condition=False, c2b=c2b, nor=nor)
             result = learn.run_train()
-            bags.append("c2b\t{}\tnor\t{}\tresult:{}\n".format(c2b,nor,result))
-            print("c2b\t{}\tnor\t{}\tresult:{}".format(c2b,nor,result))
+            bags.append("c2b\t{}\tnor\t{}\tresult:{}\n".format(c2b, nor, result))
+            print("c2b\t{}\tnor\t{}\tresult:{}".format(c2b, nor, result))
     print(args)
-    print("="*100)
+    print("=" * 100)
     for b in bags:
         print(b)

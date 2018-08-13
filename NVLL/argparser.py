@@ -3,7 +3,7 @@ import argparse
 
 def parse_arg():
     parser = argparse.ArgumentParser(description='PyTorch VAE LSTM Language Model')
-    parser.add_argument('--root_path', type=str,default='/home/cc/vae_txt')
+    parser.add_argument('--root_path', type=str, default='/home/cc/vae_txt')
     parser.add_argument('--exp_path', type=str, default='/home/cc/exp-nvdm')
     parser.add_argument('--data_name', type=str, default='ptb', help='name of the data corpus')
     parser.add_argument('--data_path', type=str, default='data/ptb', help='location of the data corpus')
@@ -29,7 +29,7 @@ def parse_arg():
     parser.add_argument('--kl_weight', type=float, default=1,
                         help='default scaling item for KL')
     parser.add_argument('--aux_weight', type=float, default=0.0001,
-                                                help = 'default scaling item for auxiliary objective term(s). Off by default. 0.001 or less is good for the mu term')
+                        help='default scaling item for auxiliary objective term(s). Off by default. 0.001 or less is good for the mu term')
 
     parser.add_argument('--batch_size', type=int, default=20, metavar='N', help='batch size')
     parser.add_argument('--eval_batch_size', type=int, default=3, help='evaluation batch size')
@@ -51,25 +51,25 @@ def parse_arg():
     parser.add_argument('--log_interval', type=int, default=100)
     parser.add_argument('--optim', type=str, default='adam', help='sgd or adam')
 
-    parser.add_argument('--norm_func', action='store_true',default=False,
+    parser.add_argument('--norm_func', action='store_true', default=False,
                         help='For Unif+vMF, choose whether to use additional function to compute z_norm')
 
-    parser.add_argument('--input_z',action='store_true',default=False)
-    parser.add_argument('--mix_unk', type=float,default=0)
+    parser.add_argument('--input_z', action='store_true', default=False)
+    parser.add_argument('--mix_unk', type=float, default=0)
 
-    parser.add_argument('--swap', action='store', default=0.1,type=float,
+    parser.add_argument('--swap', action='store', default=0.1, type=float,
                         help='Probability of swapping a word')
     parser.add_argument('--replace', action='store', default=0.1, type=float,
                         help='Probability of replacing a word with a random word.')
 
-    parser.add_argument('--bi', action='store_true',default=False)
+    parser.add_argument('--bi', action='store_true', default=False)
     # parser.add_argument('--tie_rnn', action='store_true',default=False)
 
     parser.add_argument('--cd_bow', action='store', default=0, type=int)
     parser.add_argument('--cd_bit', action='store', default=0, type=int)
 
-    parser.add_argument('--board', action='store',default="board.log", type=str)
-    parser.add_argument('--anneal',action='store',default=0,type=int)
-    parser.add_argument('--norm_max',action='store',default=2,type=float)
+    parser.add_argument('--board', action='store', default="board.log", type=str)
+    parser.add_argument('--anneal', action='store', default=0, type=int)
+    parser.add_argument('--norm_max', action='store', default=2, type=float)
     args = parser.parse_args()
     return args

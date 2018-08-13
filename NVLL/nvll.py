@@ -33,8 +33,8 @@ def set_save_name_log_nvdm(args):
 
 def set_save_name_log_nvrnn(args):
     args.save_name = os.path.join(
-         args.exp_path, 'Data{}_' \
-                                       'Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}_cdbit{}_cdbow{}_ann{}'
+        args.exp_path, 'Data{}_' \
+                       'Dist{}_Model{}_Enc{}Bi{}_Emb{}_Hid{}_lat{}_lr{}_drop{}_kappa{}_auxw{}_normf{}_nlay{}_mixunk{}_inpz{}_cdbit{}_cdbow{}_ann{}'
             .format(
             args.data_name, str(args.dist), args.model, args.enc_type, args.bi,
             args.emsize,

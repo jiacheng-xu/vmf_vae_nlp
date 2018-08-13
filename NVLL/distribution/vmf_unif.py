@@ -189,6 +189,7 @@ class unif_vMF(torch.nn.Module):
         for b in range(batch_sz):
             result[b] = self._sample_weight(kappa, dim)
         return result
+
     def _sample_ortho_batch(self, mu, dim):
         """
 
@@ -200,7 +201,7 @@ class unif_vMF(torch.nn.Module):
         assert _lat_dim == dim
         squeezed_mu = mu.unsqueeze(1)
 
-        v = GVar(torch.randn(_batch_sz, dim, 1))        #TODO random
+        v = GVar(torch.randn(_batch_sz, dim, 1))  # TODO random
 
         # v = GVar(torch.linspace(-1, 1, steps=dim))
         # v = v.expand(_batch_sz, dim).unsqueeze(2)
@@ -215,7 +216,7 @@ class unif_vMF(torch.nn.Module):
     def _sample_orthonormal_to(self, mu, dim):
         """Sample point on sphere orthogonal to mu.
         """
-        v = GVar(torch.randn(dim))      # TODO random
+        v = GVar(torch.randn(dim))  # TODO random
 
         # v = GVar(torch.linspace(-1,1,steps=dim))
 

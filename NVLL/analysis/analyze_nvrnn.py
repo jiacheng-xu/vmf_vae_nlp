@@ -13,7 +13,7 @@ import torch
 from NVLL.analysis.analyzer_argparse import parse_arg
 from NVLL.data.lm import DataLM
 from NVLL.model.nvrnn import RNNVAE
-from NVLL.util.util import GVar, swap_by_batch, replace_by_batch,replace_by_batch_with_unk
+from NVLL.util.util import GVar, swap_by_batch, replace_by_batch, replace_by_batch_with_unk
 
 cos = torch.nn.CosineSimilarity()
 
@@ -343,30 +343,30 @@ class ExpAnalyzer():
         table_of_mu = torch.FloatTensor(seq_len, batch_sz)
         for t in range(seq_len):
             cur_feed = feed.clone()
-            cur_feed[t,:] = 2
+            cur_feed[t, :] = 2
             cur_recon, _, _, cur_tup, cur_vec, _ = self.model(cur_feed, target, bit)
 
             cur_mu = cur_tup['mu']
             # cur_vec = torch.mean(cur_vec, dim=0).unsqueeze(2)
             # x = cos(original_vecs, cur_vec)
             # x= x.squeeze()
-            y=cos(original_mu, cur_mu)
+            y = cos(original_mu, cur_mu)
             y = y.squeeze()
 
             # table_of_code[t,:] = x.data
-            table_of_mu[t,:] = y.data
+            table_of_mu[t, :] = y.data
         bag = []
         for b in range(batch_sz):
-            weight = table_of_mu[:,b]
-            word_ids = feed[:,b]
+            weight = table_of_mu[:, b]
+            word_ids = feed[:, b]
             words = self.ids_to_words(word_ids.data.tolist())
             seq_of_words = words.split(" ")
-            s=""
+            s = ""
             for t in range(seq_len):
-                if weight[t]<0.98:
-                    s+="*" +seq_of_words[t] +"* "
+                if weight[t] < 0.98:
+                    s += "*" + seq_of_words[t] + "* "
                 else:
-                    s+= seq_of_words[t]+" "
+                    s += seq_of_words[t] + " "
             bag.append(s)
         return bag
 
@@ -423,8 +423,8 @@ class ExpAnalyzer():
         import numpy as np
         l = len(sample_bag)
         print("Total {} batches".format(l))
-        acc_loss = np.asarray([0, 0, 0, 0,0, 0 , 0, 0])
-        acc_cos = np.asarray([0., 0., 0.,0 , 0, 0])
+        acc_loss = np.asarray([0, 0, 0, 0, 0, 0, 0, 0])
+        acc_cos = np.asarray([0., 0., 0., 0, 0, 0])
         acc_cnt = 0
         # print(sample_bag)
         for b in sample_bag:
@@ -444,18 +444,21 @@ class ExpAnalyzer():
         acc_cos = [x / acc_cnt for x in acc_cos]
         instance.logger.info("-" * 50)
         instance.logger.info(
-            "Origin Loss|1x|2x|3x|4x:\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(acc_loss[0], acc_loss[1], acc_loss[2], acc_loss[3], acc_loss[4],
-                                                                acc_loss[5],acc_loss[6]))
+            "Origin Loss|1x|2x|3x|4x:\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(acc_loss[0], acc_loss[1], acc_loss[2],
+                                                                            acc_loss[3], acc_loss[4],
+                                                                            acc_loss[5], acc_loss[6]))
 
         instance.logger.info(
-            "Cos   1x|2x|3x|4x|5x|6x:\t{}\t{}\t{}\t{}\t{}\t{}\n".format(acc_cos[0],acc_cos[1],acc_cos[2],acc_cos[3],acc_cos[4],acc_cos[5] ))
+            "Cos   1x|2x|3x|4x|5x|6x:\t{}\t{}\t{}\t{}\t{}\t{}\n".format(acc_cos[0], acc_cos[1], acc_cos[2], acc_cos[3],
+                                                                        acc_cos[4], acc_cos[5]))
         return acc_cos, acc_loss
 
     def unpack_bag_word_importance(self, sample_bag):
         for b in sample_bag:
             for x in b:
                 print(x)
-                print("-"*80)
+                print("-" * 80)
+
     def analysis_evaluation_order_and_importance(self):
         """
         Measure the change of cos sim given different encoding sequence
@@ -667,10 +670,10 @@ if __name__ == '__main__':
     #         numpy.math.exp(cur_real_loss)))
 
     acc_cos, acc_loss = instance.analysis_evaluation_order_and_importance()
-    with open(os.path.join(args.exp_path,args.board),'a' )as fd:
+    with open(os.path.join(args.exp_path, args.board), 'a')as fd:
         fd.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
             args.data_path, args.instance_name, args.mix_unk,
-            args.swap, args.replace ,args.cd_bow,args.cd_bit,
+            args.swap, args.replace, args.cd_bow, args.cd_bit,
             acc_loss[0], acc_loss[1], acc_loss[2], acc_loss[3], acc_cos[0], acc_cos[1], acc_cos[2]))
 
     # "--data_path data/yelp --swap 0 --replace 0 --cd_bit 50 --root_path /home/cc/vae_txt --exp_path /home/cc/save-nvrnn --instance_name   Datayelp_Distvmf_Modelnvrnn_EnclstmBiFalse_Emb100_Hid400_lat100_lr10.0_drop0.5_kappa200.0_auxw0.0001_normfFalse_nlay1_mixunk1.0_inpzTrue_cdbit50_cdbow0_4.9021353610814655   --cd_bow 	0   --mix_unk   1"

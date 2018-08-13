@@ -5,6 +5,7 @@ import torch
 from NVLL.util.util import GVar
 
 from NVLL.util.gpu_flag import GPU_FLAG
+
 print(GPU_FLAG)
 #
 # start = time.time()
@@ -27,7 +28,8 @@ print(GPU_FLAG)
 # print(time.time() - start)
 import numpy as np
 
-def _sample_weight( kappa, dim):
+
+def _sample_weight(kappa, dim):
     """Rejection sampling scheme for sampling distance from center on
     surface of the sphere.
     """
@@ -44,7 +46,9 @@ def _sample_weight( kappa, dim):
         if kappa * w + dim * np.log(1. - x * w) - c >= np.log(
                 u):  # thresh is dim *(kdiv * (w-x) + log(1-x*w) -log(1-x**2))
             return w, cnt
-kappa = [32, 64,128]
+
+
+kappa = [32, 64, 128]
 
 # for k in kappa:
 #     for d in kappa:

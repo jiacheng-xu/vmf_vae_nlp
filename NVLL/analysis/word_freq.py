@@ -1,4 +1,6 @@
 import os
+
+
 def count(dic, fname):
     with open(fname, 'r') as fd:
         lines = fd.read().splitlines()
@@ -64,11 +66,12 @@ def count_word_freq():
         sent_dictionary[" ".join(sent)] = cnt / total
     sorted_sents = sorted(sent_dictionary, key=sent_dictionary.get, reverse=True)
     for piece in range(divide):
-        start = int(piece*every)
-        end = int((piece+1)*every )
+        start = int(piece * every)
+        end = int((piece + 1) * every)
         tmp_sents = sorted_sents[start:end]
-        with open("test-rare-"+str(piece)+".txt",'w') as fd:
+        with open("test-rare-" + str(piece) + ".txt", 'w') as fd:
             fd.write("\n".join(tmp_sents))
+
 
 if __name__ == "__main__":
     bank_size = 1000

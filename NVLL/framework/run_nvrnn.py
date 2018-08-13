@@ -37,7 +37,7 @@ class Runner():
         logging.info("Model {}".format(self.model))
         try:
             for epoch in range(1, self.args.epochs + 1):
-                self.args.kl_weight = schedule(epoch,self.args.anneal)
+                self.args.kl_weight = schedule(epoch, self.args.anneal)
 
                 epoch_start_time = time.time()
 

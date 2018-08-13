@@ -27,7 +27,6 @@ class DataLM(object):
         self.test = self.set_batch(self.test, eval_batch_sz)
         self.train = self.set_batch(self.train, batch_sz)  # TODO
 
-
     def tokenize(self, path,
                  condition=False):
         """Tokenizes a text file."""
@@ -35,7 +34,7 @@ class DataLM(object):
         bag = []
         # Add words to the dictionary
         len_stat = []
-        with open(path, 'r',errors='ignore') as f:
+        with open(path, 'r', errors='ignore') as f:
             for line in f:
                 words = line.split()
                 if len(words) < 2:
@@ -47,7 +46,7 @@ class DataLM(object):
                 if condition:
                     tmp_seq.append(int(words[0]))
                     assert 5 > int(words[0]) >= 0
-                    words=words[1:]
+                    words = words[1:]
                 for word in words:
                     self.dictionary.add_word(word)
                     tmp_seq.append(self.dictionary.word2idx[word])
@@ -79,7 +78,7 @@ class DataLM(object):
             cnt += 1
         data_split = data_bag[cnt * batch_sz:]
         seq_len = data_split[0].size()[0]
-        if len(data_split)>1:
+        if len(data_split) > 1:
             data_batch = torch.zeros((len(data_split), seq_len))
             for i, doc in enumerate(data_split):
                 for t in range(doc.size()[0]):

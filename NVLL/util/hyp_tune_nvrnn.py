@@ -23,31 +23,31 @@ for cd_bit in [0]:
                 for mix_unk in [1]:
                     if dist == 'vmf':
                         if lat_dim == 100:
-                            for kappa in [20,40]:
+                            for kappa in [20, 40]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 50:
-                            for kappa in [20,40,60,100,120,140]:
+                            for kappa in [20, 40, 60, 100, 120, 140]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 25:
-                            for kappa in [5, 10,15,25	]:
+                            for kappa in [5, 10, 15, 25]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 10:
-                            for kappa in [5, 10, 15, 20	]:
+                            for kappa in [5, 10, 15, 20]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)
                                 print(tmp)
                         elif lat_dim == 5:
-                            for kappa in [1,2,4,8,10]:
+                            for kappa in [1, 2, 4, 8, 10]:
                                 tmp = base + " --cd_bit {} --cd_bow {} --dist {} --kappa {} --mix_unk {} --lat_dim {}". \
                                     format(cd_bit, cd_bow, dist, kappa, mix_unk, lat_dim)
                                 bag.append(tmp)

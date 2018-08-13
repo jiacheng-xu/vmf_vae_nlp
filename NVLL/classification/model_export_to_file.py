@@ -45,10 +45,11 @@ class Sample():
             l = [str(i) for i in l]
             return " ".join(l)
 
-        wt_str = "GT_PD_RecNLL_KL_NLL_code_mu_or_mean_logvar\t{}\t{}\t{}\t{}\t{}\t".format(self.gt, self.pred, self.recon_nll,
-                                                                                   self.kl,
-                                                                                   self.total_nll
-                                                                                   )
+        wt_str = "GT_PD_RecNLL_KL_NLL_code_mu_or_mean_logvar\t{}\t{}\t{}\t{}\t{}\t".format(self.gt, self.pred,
+                                                                                           self.recon_nll,
+                                                                                           self.kl,
+                                                                                           self.total_nll
+                                                                                           )
         if self.dist_type == 'nor':
             wt_str += "{}\t{}\t{}".format(list_to_str(self.code), list_to_str(self.mean), list_to_str(self.logvar))
         elif self.dist_type == 'vmf':
@@ -152,8 +153,6 @@ class ExpAnalyzer():
             _tmp_bag.append(sample)
         return _tmp_bag
 
-
-
     def analyze_zero(self, gt, decoded):
         pred_id = self.decode_to_ids(decoded)
         gt_id = gt.data.tolist()
@@ -226,13 +225,13 @@ class ExpAnalyzer():
         # os.mkdir(os.path.join(self.exp_path, self.instance_name + 'logs'))
         # self.logger.info("Logs path: {}".format(os.path.join(self.exp_path, self.instance_name + 'logs')))
         # os.chdir(os.path.join(self.exp_path, self.instance_name + 'logs'))
-        log_file_name = os.path.join(self.exp_path, self.instance_name + 'logs_'+name+'.txt')
+        log_file_name = os.path.join(self.exp_path, self.instance_name + 'logs_' + name + '.txt')
         writes = []
         for idx, b in enumerate(bag):
             s = repr(b)
             writes.append(s)
 
-        with open(log_file_name,'w') as fd:
+        with open(log_file_name, 'w') as fd:
             fd.write("\n".join(writes))
             print("Writing finish! {}".format(log_file_name))
 
@@ -292,7 +291,7 @@ class ExpAnalyzer():
                 all_cnt += batch_sz * seq_len
         except KeyboardInterrupt:
             print("early stop")
-        self.write_samples(sample_bag,name)
+        self.write_samples(sample_bag, name)
         cur_loss = acc_loss[0] / all_cnt
         cur_kl = acc_kl_loss[0] / all_cnt
         cur_real_loss = cur_loss + cur_kl
@@ -314,7 +313,7 @@ if __name__ == '__main__':
                            cd_bow=args.cd_bow, cd_bit=args.cd_bit)
     if args.split == 0:
         cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation(instance.data.test, 'test')
-    elif args.split ==1:
+    elif args.split == 1:
         cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation(instance.data.dev, 'dev')
     elif args.split == 2:
         cur_loss, cur_kl, cur_real_loss = instance.analysis_evaluation(instance.data.train, 'train')

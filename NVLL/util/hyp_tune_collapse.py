@@ -22,13 +22,13 @@ bag = []
 #                 bag.append(tmp)
 #                 print(tmp)
 
-for enc in ['bow','gru','lstm']:
-    for dec in ['  --nlayers 1 --nhid 400 ','  --nlayers 3 --nhid 400 ' ]:
+for enc in ['bow', 'gru', 'lstm']:
+    for dec in ['  --nlayers 1 --nhid 400 ', '  --nlayers 3 --nhid 400 ']:
         for anneal in [0]:
             for mix_unk in [1]:
-                for kappa in [15,30,45,60,75]:
+                for kappa in [15, 30, 45, 60, 75]:
                     tmp = base + "--lat_dim 15 --enc_type {}  --dist vmf  {}   --mix_unk {} --anneal {} --kappa {}". \
-                        format(enc, dec, mix_unk, anneal,kappa)
+                        format(enc, dec, mix_unk, anneal, kappa)
                     bag.append(tmp)
                     print(tmp)
 

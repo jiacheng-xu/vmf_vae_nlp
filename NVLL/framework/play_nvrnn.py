@@ -12,7 +12,7 @@ import torch
 from NVLL.data.lm import DataLM
 from NVLL.framework.run_nvrnn import Runner
 from NVLL.model.nvrnn import RNNVAE
-from NVLL.util.util import GVar,swap_by_batch,replace_by_batch
+from NVLL.util.util import GVar, swap_by_batch, replace_by_batch
 
 
 class PlayNVRNN():
@@ -47,7 +47,8 @@ class PlayNVRNN():
         model = RNNVAE(self.args, self.args.enc_type, len(self.data.dictionary), self.args.emsize,
                        self.args.nhid, self.args.lat_dim, self.args.nlayers,
                        dropout=self.args.dropout, tie_weights=self.args.tied,
-                       input_z=self.args.input_z, mix_unk=self.args.mix_unk,condition=(self.args.cd_bit or self.args.cd_bow),
+                       input_z=self.args.input_z, mix_unk=self.args.mix_unk,
+                       condition=(self.args.cd_bit or self.args.cd_bow),
                        input_cd_bow=self.args.cd_bow, input_cd_bit=self.args.cd_bit)
         model.load_state_dict(torch.load(os.path.join(path, name + '.model')))
         model = model.cuda()
@@ -162,9 +163,9 @@ class PlayNVRNN():
         cur_avg_norm = acc_avg_norm[0] / cnt
         cur_real_loss = cur_loss + cur_kl
         Runner.log_instant(None, self.args, glob_iter, epo, start_time, cur_avg_cos, cur_avg_norm,
-                                   cur_loss
-                                   , cur_kl, cur_aux_loss,
-                                   cur_real_loss)
+                           cur_loss
+                           , cur_kl, cur_aux_loss,
+                           cur_real_loss)
         vs.write_log()
 
 
@@ -290,13 +291,13 @@ def compute_cos(files):
     B = bags[1]  # j
 
     print(comp_cos(_mean_of_bag(A), _mean_of_bag(B)))
-    print('-'*50)
+    print('-' * 50)
     arec = []
 
     for idx, aa in enumerate(A):
         for jdx in range(idx, len(A)):
-            print('{}\t{}\t{}'.format(idx,jdx,comp_cos(aa,A[jdx])))
-            arec.append(comp_cos(aa,A[jdx]))
+            print('{}\t{}\t{}'.format(idx, jdx, comp_cos(aa, A[jdx])))
+            arec.append(comp_cos(aa, A[jdx]))
     print(sum(arec) / float(len(arec)))
     print('-' * 50)
     brec = []
@@ -305,6 +306,8 @@ def compute_cos(files):
             print("{}\t{}\t{}".format(idx, jdx, comp_cos(aa, B[jdx])))
             brec.append(comp_cos(aa, B[jdx]))
     print(sum(brec) / float(len(brec)))
+
+
 if __name__ == '__main__':
     # bag = []
     # for swap in [0.,0.25,0.5,1]:
