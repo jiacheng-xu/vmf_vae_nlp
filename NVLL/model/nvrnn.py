@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 
 from NVLL.distribution.gauss import Gauss
-from NVLL.distribution.vmf_batch import vMF  # TODO
+from NVLL.distribution.vmf_batch import vMF
 from NVLL.distribution.vmf_unif import unif_vMF
+from NVLL.distribution.vmf_hypvae import VmfDiff
 from NVLL.util.util import GVar
 from NVLL.util.util import check_dispersion
 
@@ -92,7 +93,7 @@ class RNNVAE(nn.Module):
         elif args.dist == 'vmf':
             self.dist = vMF(nhid, lat_dim, kappa=self.args.kappa)
         elif args.dist == 'sph':
-            pass
+            self.dist = VmfDiff(nhid, lat_dim)
         elif args.dist == 'zero':
             pass
         elif args.dist == 'unifvmf':
@@ -187,7 +188,7 @@ class RNNVAE(nn.Module):
             bit = None
 
         h = self.forward_enc(emb, bit)
-        tup, kld, vecs = self.forward_build_lat(h)  # batchsz, lat dim
+        tup, kld, vecs = self.forward_build_lat(h, self.args.nsample)  # batchsz, lat dim
 
         if 'redundant_norm' in tup:
             aux_loss = tup['redundant_norm'].view(batch_sz)
@@ -241,7 +242,7 @@ class RNNVAE(nn.Module):
         # print(h.size())
         return h
 
-    def forward_build_lat(self, hidden):
+    def forward_build_lat(self, hidden, nsample=3):
         """
 
         :param hidden:
@@ -249,16 +250,15 @@ class RNNVAE(nn.Module):
         """
         # hidden: batch_sz, nhid
         if self.args.dist == 'nor':
-            tup, kld, out = self.dist.build_bow_rep(hidden, 3)  # 2 for bidirect, 2 for h and
+            tup, kld, out = self.dist.build_bow_rep(hidden, nsample)  # 2 for bidirect, 2 for h and
         elif self.args.dist == 'vmf':
-            tup, kld, out = self.dist.build_bow_rep(hidden, 3)
+            tup, kld, out = self.dist.build_bow_rep(hidden, nsample)
         elif self.args.dist == 'unifvmf':
-            tup, kld, out = self.dist.build_bow_rep(hidden, 3)
+            tup, kld, out = self.dist.build_bow_rep(hidden, nsample)
+        elif self.args.dist == 'vmf_diff':
+            tup, kld, out = self.dist.build_bow_rep(hidden, nsample)
         elif self.args.dist == 'sph':
-            norms = torch.norm(hidden, p=2, dim=1, keepdim=True)
-            out = hidden / norms
-            tup = {}
-            kld = GVar(torch.zeros(1))
+            tup, kld, out = self.dist.build_bow_rep(hidden, nsample)
         elif self.args.dist == 'zero':
             out = GVar(torch.zeros(1, hidden.size()[0], self.lat_dim))
             tup = {}
@@ -306,34 +306,34 @@ class RNNVAE(nn.Module):
         decoded = decoded.view(output.size(0), output.size(1), decoded.size(1))
         return decoded
 
-    def blstm_enc(self, input):
-        """
-        Encoding the input
-        :param input: input sequence
-        :return:
-        embedding: seq_len, batch_sz, hid_dim
-        hidden(from z): (2, batch_sz, 150)
-        mu          : batch_sz, hid_dim
-        logvar      : batch_sz, hid_dim
-        """
-        batch_sz = input.size()[1]
-        emb = self.drop(self.emb(input))
-        if self.dist == 'nor':
-            mu, logvar = self.encode(emb)
-            z = self.reparameterize(mu, logvar)  # z: batch, hid_dim
-
-            hidden = self.convert_z_to_hidden(z, batch_sz)
-            return emb, hidden, mu, logvar
-        elif self.dist == 'vmf':
-            mu = self.encode(emb)
-            mu = mu.cpu()
-            z = self.vmf.sample_vMF(mu)
-            z = z.cuda()
-
-            hidden = self.convert_z_to_hidden(z, batch_sz)
-            return emb, hidden, mu
-        else:
-            raise NotImplementedError
+    # def blstm_enc(self, input):
+    #     """
+    #     Encoding the input
+    #     :param input: input sequence
+    #     :return:
+    #     embedding: seq_len, batch_sz, hid_dim
+    #     hidden(from z): (2, batch_sz, 150)
+    #     mu          : batch_sz, hid_dim
+    #     logvar      : batch_sz, hid_dim
+    #     """
+    #     batch_sz = input.size()[1]
+    #     emb = self.drop(self.emb(input))
+    #     if self.dist == 'nor':
+    #         mu, logvar = self.encode(emb)
+    #         z = self.reparameterize(mu, logvar)  # z: batch, hid_dim
+    #
+    #         hidden = self.convert_z_to_hidden(z, batch_sz)
+    #         return emb, hidden, mu, logvar
+    #     elif self.dist == 'vmf':
+    #         mu = self.encode(emb)
+    #         mu = mu.cpu()
+    #         z = self.vmf.sample_vMF(mu)
+    #         z = z.cuda()
+    #
+    #         hidden = self.convert_z_to_hidden(z, batch_sz)
+    #         return emb, hidden, mu
+    #     else:
+    #         raise NotImplementedError
 
     def encode(self, emb):
         """

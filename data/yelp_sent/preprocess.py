@@ -2,6 +2,7 @@ import os
 
 label_dict = {}
 
+
 def remove_label_file(filename, rm_label_fname):
     label_bag = []
     bag = []
@@ -22,10 +23,11 @@ def remove_label_file(filename, rm_label_fname):
             bag.append(sent)
             label_bag.append(str(dig))
 
-    with open(rm_label_fname,'w') as fd:
+    with open(rm_label_fname, 'w') as fd:
         fd.write("\n".join(bag))
-    with open("dig_"+rm_label_fname, 'w') as fd:
+    with open("dig_" + rm_label_fname, 'w') as fd:
         fd.write("\n".join(label_bag))
+
 
 if __name__ == '__main__':
     path = os.getcwd()

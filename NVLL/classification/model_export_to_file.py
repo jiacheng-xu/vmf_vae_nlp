@@ -124,9 +124,11 @@ class ExpAnalyzer():
                        condition=(args.cd_bit or args.cd_bow),
                        input_cd_bow=args.cd_bow, input_cd_bit=args.cd_bit)
         model.load_state_dict(torch.load(os.path.join(path, name + '.model')))
-        from NVLL.util.gpu_flag import GPU_FLAG
-        if torch.cuda.is_available() and GPU_FLAG:
-            model = model.cuda()
+        from NVLL.util.gpu_flag import device
+        # if torch.cuda.is_available() and GPU_FLAG:
+        #     model = model.cuda()
+        model.to(device
+                 )
         model = model.eval()
         return model
 

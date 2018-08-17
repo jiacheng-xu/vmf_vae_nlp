@@ -6,7 +6,7 @@ import random
 random.seed(2018)
 import numpy as np
 
-from NVLL.util.gpu_flag import GPU_FLAG
+from NVLL.util.gpu_flag import device
 
 anneal_list = ["non", "lin", "sig"]
 
@@ -43,10 +43,11 @@ def check_dispersion(vecs, num_sam=10):
 
 
 def GVar(x):
-    if torch.cuda.is_available() and GPU_FLAG:
-        return torch.autograd.Variable(x).cuda()
-    else:
-        return torch.autograd.Variable(x).cpu()
+    return x.to(device)     # pytorch 0.4.1
+    # if torch.cuda.is_available() and GPU_FLAG:
+    #     return torch.autograd.Variable(x).cuda()
+    # else:
+    #     return torch.autograd.Variable(x).cpu()
 
 
 def schedule(epo, anneal_code=0):

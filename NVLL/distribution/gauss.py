@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 import numpy as np
-from NVLL.util.gpu_flag import GPU_FLAG
+from NVLL.util.gpu_flag import device
 
 
 class Gauss(nn.Module):
@@ -31,8 +31,9 @@ class Gauss(nn.Module):
 
     def sample_cell(self, batch_size):
         eps = torch.autograd.Variable(torch.normal(torch.zeros((batch_size, self.lat_dim))))
-        if torch.cuda.is_available() and GPU_FLAG:
-            eps = eps.cuda()
+        eps.to(device)
+        # if torch.cuda.is_available() and GPU_FLAG:
+        #     eps = eps.cuda()
         return eps.unsqueeze(0)
 
     def build_bow_rep(self, lat_code, n_sample):

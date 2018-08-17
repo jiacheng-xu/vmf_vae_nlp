@@ -3,18 +3,47 @@ Spherical Latent Spaces for Stable Variational Autoencoders (vMF-VAE)
 
 In this repo, we provide the experimental setups and inplementation for the algorithms described in:
 
-    Spherical Latent Spaces for Stable Variational Autoencoders. Jiacheng Xu and Greg Durrett. EMNLP 2018.
+    Spherical Latent Spaces for Stable Variational Autoencoders.
+    Jiacheng Xu and Greg Durrett. EMNLP 2018.
+    
+Please cite:
 
+    ??
+    
 ## About
 
+Keyword: **PyTorch**, **VAE**, **NLP**
+What to get from this repo: 
+* Original **Gaussian VAE** with tuned hyper-parameters and pre-trained models;
+* Novel **von-Mises Fisher VAE (vMF-VAE)** with tuned hyper-parameters and pre-trained models.
 
 ## Setup
+The environment base is Python 3.6 and Anaconda.
+
+The code is originally developed in pytorch 0.3.1 and upgraded to pytorch 0.4.1.
+
+    conda install pytorch=0.4.1 torchvision -c pytorch
+    pip install tensorboardX
+
+### Data
 
 
 ## Running
 
+#### Set up Device: CUDA or CPU
+
+### Set up directories
+
+### Train
+
+### Test 
 
 ## Reference
+
+
+## Contact
+Submit an issue here or find more information in my [homepage](http://www.cs.utexas.edu/~jcxu/).
+
 
 
 

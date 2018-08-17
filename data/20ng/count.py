@@ -1,7 +1,7 @@
-cnt =0
+cnt = 0
 word = 0
 
-with open('../rcv/test.feat','r') as fd:
+with open('../rcv/test.feat', 'r') as fd:
     lines = fd.read().splitlines()
     for l in lines:
         w = l.split(" ")[1:]
@@ -9,4 +9,4 @@ with open('../rcv/test.feat','r') as fd:
         for x in w:
             word += int(x.split(":")[1])
         cnt += 1.
-print(word/cnt)
+print(word / cnt)

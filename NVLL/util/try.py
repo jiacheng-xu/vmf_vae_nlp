@@ -4,9 +4,9 @@ import torch
 
 from NVLL.util.util import GVar
 
-from NVLL.util.gpu_flag import GPU_FLAG
+from NVLL.util.gpu_flag import device
 
-print(GPU_FLAG)
+print(device)
 #
 # start = time.time()
 # hard = torch.nn.Hardtanh()

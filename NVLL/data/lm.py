@@ -5,31 +5,31 @@ from NVLL.util.util import GVar
 
 
 class DataLM(object):
+    """Data structure and preprocessing for language model (Yelp with sentiment bit and PTB) """
+
     def __init__(self, path, batch_sz, eval_batch_sz, condition=False):
+        """
+
+        :param path: path to data files
+        :param batch_sz: training batch size
+        :param eval_batch_sz: evaluation batch size
+        :param condition: whether condition on the sentiment bit (category). Only turn on for Yelp.
+        """
         self.condition = condition
         self.dictionary = Dictionary()
         self.test = self.tokenize(os.path.join(path, 'test.txt'), condition)
         self.train = self.tokenize(os.path.join(path, 'train.txt'), condition)
         self.dev = self.tokenize(os.path.join(path, 'valid.txt'), condition)
-        print(self.dictionary.__len__())
-        # self.demo_u = self.tokenize(os.path.join(path, 'test_university.txt'))
-        # self.demo_u = self.set_batch(self.demo_u, 1)
-        #
-        # self.demo_h = self.tokenize(os.path.join(path, 'test_hotel.txt'))
-        # self.demo_h = self.set_batch(self.demo_h, 1)
-        #
-        # self.demo_e  = self.tokenize(os.path.join(path, 'test_european.txt'))
-        # self.demo_e = self.set_batch(self.demo_e, 1)
+        print("Size of dictionary: {}".format(self.dictionary.__len__()))
 
         self.dictionary.save()
 
         self.dev = self.set_batch(self.dev, eval_batch_sz)
         self.test = self.set_batch(self.test, eval_batch_sz)
-        self.train = self.set_batch(self.train, batch_sz)  # TODO
+        self.train = self.set_batch(self.train, batch_sz)
 
-    def tokenize(self, path,
-                 condition=False):
-        """Tokenizes a text file."""
+    def tokenize(self, path, condition=False):
+        """Tokenizes a PTB style text file for language model."""
         assert os.path.exists(path)
         bag = []
         # Add words to the dictionary
@@ -43,9 +43,9 @@ class DataLM(object):
                 len_stat.append(len(words))
                 # tokens += len(words)
                 tmp_seq = []
-                if condition:
+                if condition:  # For Yelp (with sentiment bit as the first word)
                     tmp_seq.append(int(words[0]))
-                    assert 5 > int(words[0]) >= 0
+                    assert 5 > int(words[0]) >= 0  # sentiment bit range: [0,5)
                     words = words[1:]
                 for word in words:
                     self.dictionary.add_word(word)
@@ -90,6 +90,13 @@ class DataLM(object):
 
     @staticmethod
     def get_feed(data_patch):
+        """
+        Given data patch, get the corresponding input of that data patch.
+        Given: [A, B, C, D]
+        Return: [SOS, A, B, C]
+        :param data_patch:
+        :return:
+        """
         # seq, batch
         bsz = data_patch.size()[1]
         sos = torch.LongTensor(1, bsz).fill_(1)

@@ -1,12 +1,16 @@
 import numpy as np
 import torch
 from scipy import special as sp
-import time
 from NVLL.util.util import GVar
 
 
 class vMF(torch.nn.Module):
     def __init__(self, hid_dim, lat_dim, kappa=1):
+        """
+        von Mises-Fisher distribution class with batch support and manual tuning kappa value.
+        Implementation follows description of my paper and Guu's.
+        """
+
         super().__init__()
         self.hid_dim = hid_dim
         self.lat_dim = lat_dim
@@ -149,3 +153,4 @@ class vMF(torch.nn.Module):
 # mu = mu.view(batchsz, -1)
 # mu = mu / torch.norm(mu, p=2, dim=1, keepdim=True)
 # vmf.sample_cell(mu, None, 100)
+# x = vMF(10,lat_dim=50,kappa=50)

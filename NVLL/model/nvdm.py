@@ -6,6 +6,7 @@ import torch
 from NVLL.distribution.gauss import Gauss
 from NVLL.distribution.vmf_batch import vMF
 from NVLL.distribution.vmf_unif import unif_vMF
+from NVLL.distribution.vmf_hypvae import VmfDiff
 from NVLL.util.util import GVar
 
 
@@ -33,6 +34,8 @@ class BowVAE(torch.nn.Module):
             self.dist = vMF(n_hidden, n_lat, kappa=self.args.kappa)
         elif self.dist_type == 'unifvmf':
             self.dist = unif_vMF(n_hidden, n_lat, kappa=self.args.kappa, norm_func=self.args.norm_func)
+        elif self.dist_type == 'sph':
+            self.dist = VmfDiff(n_hidden, n_lat)
         else:
             raise NotImplementedError
 

@@ -6,6 +6,7 @@ import torch
 from NVLL.distribution.gauss import Gauss
 from NVLL.distribution.vmf_batch import vMF
 from NVLL.distribution.vmf_unif import unif_vMF
+from NVLL.distribution.vmf_hypvae import VmfDiff
 from NVLL.util.util import GVar
 
 

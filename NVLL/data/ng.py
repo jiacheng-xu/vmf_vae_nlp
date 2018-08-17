@@ -4,9 +4,10 @@ import random
 import numpy as np
 
 
-class DataNg():
+class DataNg:
     """
-    Data for 20News group
+    Data for 20News group or RCV1.
+    Data is preprocessed by Yishu Miao.
     """
 
     def __init__(self, args):
@@ -14,7 +15,7 @@ class DataNg():
                                                    args.data_path, 'train.feat'))
         self.test = DataNg.read_data(os.path.join(args.root_path,
                                                   args.data_path, 'test.feat'))
-        self.set_dev(1000)
+        self.set_dev(1000)  # No dev set, use a part of test as dev set.
         self.test_batches = DataNg.create_batches(len(self.test[0]), args.eval_batch_size, shuffle=True)
         self.dev_batches = DataNg.create_batches(len(self.dev[0]), args.eval_batch_size, shuffle=True)
         self.read_vocab(os.path.join(args.root_path,
