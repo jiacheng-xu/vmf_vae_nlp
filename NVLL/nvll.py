@@ -75,7 +75,7 @@ def main():
         # For rcv use nvdm_v2?
 
         if args.data_name == '20ng':
-            from NVLL.model.nvdm_20ng import BowVAE
+            from NVLL.model.nvdm_rc import BowVAE
         elif args.data_name == 'rcv':
             from NVLL.model.nvdm_rc import BowVAE
         else:

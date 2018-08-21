@@ -4,6 +4,8 @@ import numpy as np
 from NVLL.util.util import GVar
 from NVLL.util.gpu_flag import device
 
+from torch.autograd import gradcheck
+
 
 class BesselIve(torch.autograd.Function):
     """
@@ -20,7 +22,7 @@ class BesselIve(torch.autograd.Function):
         to stash information for backward computation. You can cache arbitrary
         objects for use in the backward pass using the ctx.save_for_backward method.
         """
-        ctx.save_for_backward(dim.float(), kappa)
+        ctx.save_for_backward(dim.double(), kappa)
         m = sp.ive(dim, kappa.detach())
         x = torch.tensor(m).to(device)
         # x = torch.from_numpy(np.asarray(sp.ive(dim, kappa)))
@@ -35,12 +37,58 @@ class BesselIve(torch.autograd.Function):
         """
         dim, kappa = ctx.saved_tensors
         grad_input = grad_output.clone()
-        grad = grad_input * (bessel(dim - 1, kappa) - bessel(dim, kappa) * (dim + kappa) / kappa)
+        grad = grad_input * (bessel_ive(dim - 1, kappa) - bessel_ive(dim, kappa) * (dim + kappa) / kappa)
+        # grad = grad_input * (bessel(dim-1, kappa) + bessel(dim+1, kappa)) *0.5
         return None, grad
 
 
-bessel = BesselIve.apply
+class BesselIv(torch.autograd.Function):
+    """
+    We can implement our own custom autograd Functions by subclassing
+    torch.autograd.Function and implementing the forward and backward passes
+    which operate on Tensors.
+    """
 
+    @staticmethod
+    def forward(ctx, dim, kappa):
+        """
+        In the forward pass we receive a Tensor containing the input and return
+        a Tensor containing the output. ctx is a context object that can be used
+        to stash information for backward computation. You can cache arbitrary
+        objects for use in the backward pass using the ctx.save_for_backward method.
+        """
+        ctx.save_for_backward(dim.double(), kappa)
+        m = sp.iv(dim, kappa.detach())
+        x = torch.tensor(m).to(device)
+        # x = torch.from_numpy(np.asarray(sp.ive(dim, kappa)))
+        return x
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        """
+        In the backward pass we receive a Tensor containing the gradient of the loss
+        with respect to the output, and we need to compute the gradient of the loss
+        with respect to the input.
+        """
+        dim, kappa = ctx.saved_tensors
+        grad_input = grad_output.clone()
+        # grad = grad_input * (bessel_ive(dim - 1, kappa) - bessel_ive(dim, kappa) * (dim + kappa) / kappa)
+        grad = grad_input * (bessel_iv(dim - 1, kappa) + bessel_iv(dim + 1, kappa)) * 0.5
+        return None, grad
+
+
+bessel_ive = BesselIve.apply
+
+bessel_iv = BesselIv.apply
+
+
+# dim = torch.tensor(1.0).to(device)
+# kappa = torch.tensor(10.0,requires_grad=True).double().to(device)
+# save = True
+# res = torch.autograd.gradcheck(bessel, (dim, kappa), raise_exception=True)
+#
+# print(res) # res should be True if the gradients are correct.
+# exit()
 
 class VmfDiff(torch.nn.Module):
     def __init__(self, hid_dim, lat_dim):
@@ -81,7 +129,7 @@ class VmfDiff(torch.nn.Module):
         #         - torch.tensor(sp.loggamma(d / 2).real) - (d / 2) * torch.log(torch.tensor(2 * 3.1415926))
 
         const = torch.tensor(
-            np.log(3.1415926) * d / 2 + np.log(2) - sp.loggamma(d / 2).real - (d / 2) * np.log(2 * 3.1415926)).to(
+            np.log(np.pi) * d / 2 + np.log(2) - sp.loggamma(d / 2).real - (d / 2) * np.log(2 * np.pi)).to(
             device)
         # print(const)
         d = torch.tensor([d], dtype=torch.float).to(device)
@@ -91,10 +139,9 @@ class VmfDiff(torch.nn.Module):
             # print(k)
             # print(k)
             # print(d)
-            first = k * bessel(d / 2, k) / bessel(d / 2 - 1, k)
-            second = (d / 2 - 1) * torch.log(k) - torch.log(bessel(d / 2 - 1, k))
+            first = k * bessel_ive(d / 2, k) / bessel_ive(d / 2 - 1, k)
+            second = (d / 2 - 1) * torch.log(k) - torch.log(bessel_iv(d / 2 - 1, k))
             combin = (first + second + const)
-            # print(combin)
             rt_bag.append(combin)
         return torch.tensor(rt_bag).to(device)
 
@@ -196,6 +243,7 @@ class VmfDiff(torch.nn.Module):
         ortho_norm = torch.norm(ortho)
         return ortho / ortho_norm.expand_as(ortho)
 
+
 #
 # a = torch.tensor(10)
 # b = torch.ones(1, dtype=torch.float, requires_grad=True)
@@ -205,3 +253,40 @@ class VmfDiff(torch.nn.Module):
 # print(y)
 # loss.backward()
 # print(a)
+
+
+def KL_guu(k, d):
+    kld = k * ((sp.iv(d / 2.0 + 1.0, k) \
+                + sp.iv(d / 2.0, k) * d / (2.0 * k)) / sp.iv(d / 2.0, k) - d / (2.0 * k)) \
+          + d * np.log(k) / 2.0 - np.log(sp.iv(d / 2.0, k)) \
+          - sp.loggamma(d / 2 + 1) - d * np.log(2) / 2
+
+    return kld
+
+
+from scipy.special import ive
+from scipy.special import iv
+
+
+# print(iv(100,50))
+
+def KL_davidson(k, d):
+    vmf_entropy = k * ive(d / 2, k) / ive((d / 2) - 1, k) + \
+                  (d / 2 - 1) * np.log(k) \
+                  - (d / 2) * np.log(2 * np.pi) - np.log(iv(d / 2 - 1, k))
+
+    hyu_ent = np.log(2) + (d / 2) * np.log(np.pi) - sp.loggamma(
+        d / 2)
+
+    kl = vmf_entropy + hyu_ent
+    return kl
+#
+# first = k * bessel(d / 2, k) / bessel(d / 2 - 1, k)
+# second = (d / 2 - 1) * torch.log(k) - torch.log(bessel(d / 2 - 1, k))
+# const = torch.tensor(
+#            np.log(3.1415926) * d / 2 + np.log(2) - sp.loggamma(d / 2).real - (d / 2) * np.log(2 * 3.1415926)).to(
+#            devic
+
+# for kappa in range(10, 150, 20):
+#     for d in range(50, 150, 50):
+#         print("Davidson:{}\t\tGuu:{}".format(KL_davidson(kappa, d), KL_guu(kappa, d)))

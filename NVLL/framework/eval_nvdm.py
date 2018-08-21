@@ -34,7 +34,7 @@ class PlayNVDM():
     def load_model(self, path, name):
 
         if self.args.data_name == '20ng':
-            from NVLL.model.nvdm_20ng import BowVAE
+            from NVLL.model.nvdm_rc import BowVAE
             model = BowVAE(self.args, vocab_size=2000, n_hidden=self.args.nhid,
                            n_lat=self.args.lat_dim,
                            n_sample=self.args, dist=self.args.dist)
