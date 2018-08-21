@@ -10,7 +10,6 @@ import torch
 
 from NVLL.data.ng import DataNg
 from NVLL.framework.train_eval_nvdm import Runner
-from NVLL.model.nvdm import BowVAE
 from NVLL.util.util import GVar
 
 random.seed(2018)
@@ -33,8 +32,20 @@ class PlayNVDM():
         return args
 
     def load_model(self, path, name):
-        model = BowVAE(self.args, vocab_size=2000, n_hidden=self.args.nhid, n_lat=self.args.lat_dim,
-                       n_sample=3, dist=self.args.dist)
+
+        if self.args.data_name == '20ng':
+            from NVLL.model.nvdm_20ng import BowVAE
+            model = BowVAE(self.args, vocab_size=2000, n_hidden=self.args.nhid,
+                           n_lat=self.args.lat_dim,
+                           n_sample=self.args, dist=self.args.dist)
+        elif self.args.data_name == 'rcv':
+            from NVLL.model.nvdm_rc import BowVAE
+            model = BowVAE(self.args, vocab_size=10000, n_hidden=self.args.nhid,
+                           n_lat=self.args.lat_dim,
+                           n_sample=self.args, dist=self.args.dist)
+        else:
+            raise NotImplementedError
+
         model.load_state_dict(torch.load(os.path.join(path, name + '.model')))
         model = model.cuda()
         return model
@@ -83,8 +94,8 @@ class PlayNVDM():
             #         acc_real_loss += n
             # acc_real_ppl += torch.sum(real_ppl)
 
-            acc_loss += torch.sum(recon_loss).data[0]  #
-            acc_kl_loss += torch.sum(kld).data[0]
+            acc_loss += torch.sum(recon_loss).item()  #
+            acc_kl_loss += torch.sum(kld).item()
             count_batch = count_batch + 1e-12
 
             word_cnt += torch.sum(count_batch)
@@ -140,8 +151,8 @@ class PlayNVDM():
                     acc_real_loss += n
             # acc_real_ppl += torch.sum(real_ppl)
 
-            acc_loss += torch.sum(recon_loss).data  #
-            acc_kl_loss += torch.sum(kld.data)
+            acc_loss += torch.sum(recon_loss).item()  #
+            acc_kl_loss += torch.sum(kld.item())
             count_batch = count_batch + 1e-12
 
             word_cnt += torch.sum(count_batch)
@@ -175,8 +186,8 @@ class visual_gauss():
             self.add_single(this_mean, this_logvar)
 
     def add_single(self, mean, logvar):
-        norm_mean = torch.norm(mean).data[0]
-        norm_var = torch.norm(torch.exp(logvar)).data[0]
+        norm_mean = torch.norm(mean).item()
+        norm_var = torch.norm(torch.exp(logvar)).item()
 
         self.logs.append("{}\t{}".format(norm_mean, norm_var))
 
@@ -227,9 +238,9 @@ class visual_vmf():
 
 
 if __name__ == '__main__':
-    player = PlayNVDM('/home/jcxu/vae_txt/TrainedModels',
-                      '831Data20ng_Distvmf_Modelnvdm_Emb400_Hid800_lat50_lr0.005_drop0.0_kappa100.0_auxw0.0001_normfFalse'
-                      , '/home/jcxu/vae_txt/data/20news')
+    player = PlayNVDM(load_path='/backup2/jcxu/exp-nvdm',
+                      load_name='Datarcv_Distvmf_Modelnvdm_Emb400_Hid800_lat50_lr1.0_drop0.1_kappa150.0_auxw0.0001_normfFalse_6.325002193450928'
+                      , data_path='/home/jcxu/vae_txt/data/rcv')
     player.eva()
     # glob_iter = self.train_epo(self.args, self.model, self.data.train_batches, epoch,
     #                            epoch_start_time, glob_iter)

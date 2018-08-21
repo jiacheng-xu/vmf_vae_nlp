@@ -16,7 +16,7 @@ def parse_arg():
 
     parser.add_argument('--dist', type=str, default='vmf',
                         help='nor or vmf or zero. nor is gaussian, zero means not using anything from encoder side (pure lstm language model)')
-    parser.add_argument('--kappa', type=float, default=0.1,help='pre-set kappa value for default vMF VAE.')
+    parser.add_argument('--kappa', type=float, default=0.1, help='pre-set kappa value for default vMF VAE.')
 
     parser.add_argument('--emsize', type=int, default=400, help='size of word embeddings')
     parser.add_argument('--nhid', type=int, default=400, help='number of hidden units per layer')
@@ -45,11 +45,11 @@ def parse_arg():
                         help='tie the word embedding and softmax weights')
 
     parser.add_argument('--seed', type=int, default=1111, help='random seed')
-    parser.add_argument('--cuda', action='store_true', help='use CUDA') #TODO
+    # parser.add_argument('--cuda', action='store_true', help='use CUDA')  # TODO
     # parser.add_argument('--log-interval', type=int, default=100, metavar='N',
     #                     help='report interval')
 
-    parser.add_argument('--exp', type=str, default='../exp', help='file dir to save and load all models and logs')
+    # parser.add_argument('--exp', type=str, default='../exp', help='file dir to save and load all models and logs')
     parser.add_argument('--load', type=str, default=None, help='Name of previous model to be restored')
 
     parser.add_argument('--log_interval', type=int, default=100)
@@ -67,16 +67,16 @@ def parse_arg():
     parser.add_argument('--replace', action='store', default=0.0, type=float,
                         help='Probability of replacing a word with a random word.')
 
-    parser.add_argument('--bi', action='store_true', default=False,help='Bidirection for encoding')
+    parser.add_argument('--bi', action='store_true', default=False, help='Bidirection for encoding')
     # parser.add_argument('--tie_rnn', action='store_true',default=False)
 
-    parser.add_argument('--cd_bow', action='store', default=0, type=int,help='Condition on Bag-of-words')
-    parser.add_argument('--cd_bit', action='store', default=0, type=int,help='Condition on sentiment bit')
+    parser.add_argument('--cd_bow', action='store', default=0, type=int, help='Condition on Bag-of-words')
+    parser.add_argument('--cd_bit', action='store', default=0, type=int, help='Condition on sentiment bit')
 
     parser.add_argument('--board', action='store', default="board.log", type=str)
     parser.add_argument('--anneal', action='store', default=0, type=int)
     parser.add_argument('--norm_max', action='store', default=2, type=float)
-    parser.add_argument('--nsample',action='store',default=3,type=int,help='Number of samples when sampling')
+    parser.add_argument('--nsample', action='store', default=3, type=int, help='Number of samples when sampling')
     parser.add_argument('--fly', default=False, action='store_true')
 
     args = parser.parse_args()

@@ -2,6 +2,7 @@ import torch
 from scipy import special as sp
 import numpy as np
 from NVLL.util.util import GVar
+from NVLL.util.gpu_flag import device
 
 
 class BesselIve(torch.autograd.Function):
@@ -21,7 +22,7 @@ class BesselIve(torch.autograd.Function):
         """
         ctx.save_for_backward(dim.float(), kappa)
         m = sp.ive(dim, kappa.detach())
-        x = torch.tensor(m)
+        x = torch.tensor(m).to(device)
         # x = torch.from_numpy(np.asarray(sp.ive(dim, kappa)))
         return x
 
@@ -47,13 +48,14 @@ class VmfDiff(torch.nn.Module):
         self.hid_dim = hid_dim
         self.lat_dim = lat_dim
         self.func_mu = torch.nn.Linear(hid_dim, lat_dim)
-        self.func_kappa = torch.nn.Linear(hid_dim, lat_dim)
+        self.func_kappa = torch.nn.Linear(hid_dim, 1)
         # self.kld = GVar(torch.from_numpy(vMF._vmf_kld(kappa, lat_dim)).float())
         # print('KLD: {}'.format(self.kld.data[0]))
+        self.nonneg = torch.nn.Softplus()
 
     def estimate_param(self, latent_code):
         ret_dict = {}
-        ret_dict['kappa'] = self.func_kappa(latent_code)
+        ret_dict['kappa'] = self.nonneg(self.func_kappa(latent_code))
 
         # Only compute mu, use mu/mu_norm as mu,
         #  use 1 as norm, use diff(mu_norm, 1) as redundant_norm
@@ -73,13 +75,28 @@ class VmfDiff(torch.nn.Module):
     def compute_KLD(self, tup, batch_sz):
         kappa = tup['kappa']
         d = self.lat_dim
+
         rt_bag = []
-        const = torch.log(np.pi) * d / 2 + torch.log(2) - sp.loggamma(d / 2) - (d / 2) * torch.log(2 * np.pi)
-        for k in kappa:
+        # const = torch.log(torch.tensor(3.1415926)) * d / 2 + torch.log(torch.tensor(2.0)) \
+        #         - torch.tensor(sp.loggamma(d / 2).real) - (d / 2) * torch.log(torch.tensor(2 * 3.1415926))
+
+        const = torch.tensor(
+            np.log(3.1415926) * d / 2 + np.log(2) - sp.loggamma(d / 2).real - (d / 2) * np.log(2 * 3.1415926)).to(
+            device)
+        # print(const)
+        d = torch.tensor([d], dtype=torch.float).to(device)
+        batchsz = kappa.size()[0]
+        for k_idx in range(batchsz):
+            k = kappa[k_idx]
+            # print(k)
+            # print(k)
+            # print(d)
             first = k * bessel(d / 2, k) / bessel(d / 2 - 1, k)
             second = (d / 2 - 1) * torch.log(k) - torch.log(bessel(d / 2 - 1, k))
-            rt_bag.append(first + second + const)
-        return torch.tensor(rt_bag)
+            combin = (first + second + const)
+            # print(combin)
+            rt_bag.append(combin)
+        return torch.tensor(rt_bag).to(device)
 
     def build_bow_rep(self, lat_code, n_sample):
         batch_sz = lat_code.size()[0]
@@ -90,6 +107,7 @@ class VmfDiff(torch.nn.Module):
 
         kld = self.compute_KLD(tup, batch_sz)
         vecs = []
+        kappa = kappa.detach().cpu().numpy()
         if n_sample == 1:
             return tup, kld, self.sample_cell(mu, norm, kappa)
         for n in range(n_sample):
@@ -106,7 +124,7 @@ class VmfDiff(torch.nn.Module):
         w = w.unsqueeze(1)
 
         # batch version
-        w_var = GVar(w * torch.ones(batch_sz, lat_dim))
+        w_var = GVar(w * torch.ones(batch_sz, lat_dim).to(device))
         v = self._sample_ortho_batch(mu, lat_dim)
         scale_factr = torch.sqrt(
             GVar(torch.ones(batch_sz, lat_dim)) - torch.pow(w_var, 2))
@@ -114,19 +132,22 @@ class VmfDiff(torch.nn.Module):
         muscale = mu * w_var
         sampled_vec = orth_term + muscale
 
-        return sampled_vec.unsqueeze(0)
+        return sampled_vec.unsqueeze(0).to(device)
 
     def _sample_weight_batch(self, kappa, dim, batch_sz=1):
-        result = torch.FloatTensor((batch_sz))
+        # result = torch.FloatTensor((batch_sz))
+        result = np.zeros((batch_sz))
         for b in range(batch_sz):
-            result[b] = self._sample_weight(kappa, dim)
-        return result
+            result[b] = self._sample_weight(kappa[b], dim)
+        return torch.from_numpy(result).float().to(device)
 
     def _sample_weight(self, kappa, dim):
         """Rejection sampling scheme for sampling distance from center on
         surface of the sphere.
         """
         dim = dim - 1  # since S^{n-1}
+        # print(dim)
+        # print(kappa)
         b = dim / (np.sqrt(4. * kappa ** 2 + dim ** 2) + 2 * kappa)  # b= 1/(sqrt(4.* kdiv**2 + 1) + 2 * kdiv)
         x = (1. - b) / (1. + b)
         c = kappa * x + dim * np.log(1 - x ** 2)  # dim * (kdiv *x + np.log(1-x**2))

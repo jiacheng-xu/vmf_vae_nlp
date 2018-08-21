@@ -11,9 +11,7 @@ from NVLL.util.gpu_flag import device
 def set_seed(args):
     torch.manual_seed(args.seed)
     if device == torch.device("cuda"):
-        if not args.cuda:
-            print("WARNING: You have a CUDA device, so you should probably run with --cuda")
-        else:
+
             torch.cuda.manual_seed(args.seed)
 
 
@@ -74,7 +72,14 @@ def main():
 
         from NVLL.data.ng import DataNg
         # from NVLL.model.nvdm import BowVAE
-        from NVLL.model.nvdm import BowVAE
+        # For rcv use nvdm_v2?
+
+        if args.data_name == '20ng':
+            from NVLL.model.nvdm_20ng import BowVAE
+        elif args.data_name == 'rcv':
+            from NVLL.model.nvdm_rc import BowVAE
+        else:
+            raise NotImplementedError
         from NVLL.framework.train_eval_nvdm import Runner
         # Datarcv_Distvmf_Modelnvdm_Emb400_Hid400_lat50
         data = DataNg(args)
@@ -90,9 +95,6 @@ def main():
             files = [f for f in files if f.endswith(".model")]
             current_name = "Data{}_Dist{}_Model{}_Emb{}_Hid{}_lat{}".format(args.data_name, str(args.dist),
                                                                                       args.model,
-
-                                                                                      args.emsize,
-                                                                                      args.nhid, args.lat_dim)
             for f in files:
                 if current_name in f:
                     try:

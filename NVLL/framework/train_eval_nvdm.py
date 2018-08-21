@@ -10,8 +10,7 @@ import time
 import torch
 from NVLL.util.gpu_flag import device
 from NVLL.data.ng import DataNg
-# from NVLL.model.nvdm import BowVAE
-from NVLL.model.nvdm import BowVAE
+
 # from NVLL.util.util import schedule, GVar, maybe_cuda
 from NVLL.util.util import schedule, GVar
 
@@ -69,6 +68,12 @@ class Runner():
 
     def end(self):
         # Load the best saved model.
+        if self.args.data_name == '20ng':
+            from NVLL.model.nvdm_rc import BowVAE
+        elif self.args.data_name == 'rcv':
+            from NVLL.model.nvdm_rc import BowVAE
+        else:
+            raise NotImplementedError
         model = BowVAE(self.args, vocab_size=self.data.vocab_size, n_hidden=self.args.nhid,
                        n_lat=self.args.lat_dim,
                        n_sample=3, dist=self.args.dist)
@@ -84,9 +89,9 @@ class Runner():
         cur_loss, cur_kl, test_loss = self.evaluate(self.args, model,
                                                     self.data.test[0], self.data.test[1], self.data.test_batches)
         Runner.log_eval(self.writer, None, cur_loss, cur_kl, test_loss, True)
-        cur_loss = cur_loss.data[0]
-        cur_kl = cur_kl.data[0]
-        test_loss = test_loss.data[0]
+        cur_loss = cur_loss.item()
+        cur_kl = cur_kl.item()
+        test_loss = test_loss.item()
         os.rename(self.args.save_name + '.model', self.args.save_name + '_' + str(test_loss) + '.model')
         os.rename(self.args.save_name + '.args', self.args.save_name + '_' + str(test_loss) + '.args')
         self.write_board(self.args, cur_loss, cur_kl, test_loss)
@@ -94,9 +99,9 @@ class Runner():
 
     @staticmethod
     def log_eval(writer, glob_iter, recon_loss, kl_loss, loss, is_test=False):
-        recon_loss = recon_loss.data[0]
-        kl_loss = kl_loss.data[0]
-        loss = loss.data[0]
+        recon_loss = recon_loss.item()
+        kl_loss = kl_loss.item()
+        loss = loss.item()
         # print('=' * 89)
         if is_test:
             print(
@@ -173,7 +178,7 @@ class Runner():
             total_loss.backward()
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-            torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
 
             self.optim.step()
 
@@ -183,23 +188,23 @@ class Runner():
             # real_loss = torch.div((recon_loss + kld).data, count_batch)
             # acc_real_loss += torch.sum(real_loss)
 
-            acc_loss += torch.sum(recon_loss).data
-            acc_kl_loss += torch.sum(kld).data
-            acc_aux_loss += torch.sum(aux_loss).data
-            acc_avg_cos += tup['avg_cos'].data
-            acc_avg_norm += tup['avg_norm'].data
+            acc_loss += torch.sum(recon_loss).item()
+            acc_kl_loss += torch.sum(kld).item()
+            acc_aux_loss += torch.sum(aux_loss).item()
+            acc_avg_cos += tup['avg_cos'].item()
+            acc_avg_norm += tup['avg_norm'].item()
             cnt += 1
 
             count_batch = count_batch + 1e-12
-            word_cnt += torch.sum(count_batch).data[0]
+            word_cnt += torch.sum(count_batch).item()
             doc_cnt += doc_num
 
             if idx % args.log_interval == 0 and idx > 0:
-                cur_loss = acc_loss[0] / word_cnt  # word loss
-                cur_kl = acc_kl_loss[0] / word_cnt
-                cur_aux_loss = acc_aux_loss[0] / word_cnt
-                cur_avg_cos = acc_avg_cos[0] / cnt
-                cur_avg_norm = acc_avg_norm[0] / cnt
+                cur_loss = acc_loss / word_cnt  # word loss
+                cur_kl = acc_kl_loss / word_cnt
+                cur_aux_loss = acc_aux_loss / word_cnt
+                cur_avg_cos = acc_avg_cos / cnt
+                cur_avg_norm = acc_avg_norm / cnt
                 # cur_real_loss = acc_real_loss / doc_cnt
                 cur_real_loss = cur_loss + cur_kl
 
@@ -218,8 +223,9 @@ class Runner():
                 word_cnt = 0
                 doc_cnt = 0
                 cnt = 0
-            if idx % (5 * args.log_interval) == 0 and idx > 0:
-                self.eval_interface()
+            if idx % (3 * args.log_interval) == 0 and idx > 0:
+                with torch.no_grad():
+                    self.eval_interface()
 
     def eval_interface(self):
 
@@ -227,7 +233,7 @@ class Runner():
                                                    self.data.dev[0], self.data.dev[1], self.data.dev_batches)
         Runner.log_eval(self.writer, self.glob_iter, cur_loss, cur_kl, val_loss, False)
         print(self.args.save_name)
-        val_loss = val_loss.data[0]
+        val_loss = val_loss.item()
         if not self.best_val_loss or val_loss < self.best_val_loss:
             with open(self.args.save_name + ".model", 'wb') as f:
                 torch.save(self.model.state_dict(), f)
@@ -241,7 +247,7 @@ class Runner():
         # if self.glob_iter > 1000:
         #     raise KeyboardInterrupt
 
-        if self.dead_cnt == 7:
+        if self.dead_cnt == 15:
             raise KeyboardInterrupt
 
     def evaluate(self, args, model, corpus_dev, corpus_dev_cnt, dev_batches):

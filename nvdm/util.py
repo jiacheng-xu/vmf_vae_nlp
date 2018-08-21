@@ -4,6 +4,7 @@ import random
 
 import numpy as np
 import torch
+from NVLL.util.gpu_flag import device
 
 
 class NewsCorpus(object):
@@ -12,7 +13,7 @@ class NewsCorpus(object):
         self.train, self.train_cnt = self.read_data(os.path.join(path, 'train.feat'))
         l = list(range(len(self.test)))
         random.shuffle(l)
-        l=l[:500]
+        l = l[:500]
         self.dev = []
         self.dev_cnt = []
         for i in l:
@@ -90,7 +91,7 @@ def create_batches(data_size, batch_size, shuffle=True):
     rest = data_size % batch_size
     if rest > 0:
         # batches.append(list(ids[-rest:]) + [-1] * (batch_size - rest))  # -1 as padding
-        batches.append(list(ids[-rest:]) )  # -1 as padding
+        batches.append(list(ids[-rest:]))  # -1 as padding
     return batches
 
 
@@ -179,7 +180,7 @@ def evaluate(args, model, corpus_dev, corpus_dev_cnt, dev_batches):
 
     acc_loss = 0
     acc_kl_loss = 0
-    acc_real_ppl= 0
+    acc_real_ppl = 0
     word_cnt = 0
     doc_cnt = 0
     start_time = time.time()
@@ -193,16 +194,12 @@ def evaluate(args, model, corpus_dev, corpus_dev_cnt, dev_batches):
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         # hidden = repackage_hidden(hidden)
 
-
-        data_batch = torch.autograd.Variable(torch.FloatTensor(data_batch))
-        mask = torch.autograd.Variable(torch.FloatTensor(mask))
-        if args.cuda:
-            data_batch = data_batch.cuda()
-            mask = mask.cuda()
+        data_batch = torch.FloatTensor(data_batch).to(device)
+        mask = torch.FloatTensor(mask).to(device)
 
         recon_loss, kld, _ = model(data_batch, mask)
-        count_batch = torch.FloatTensor(count_batch).cuda()
-        real_ppl = torch.div((recon_loss+kld).data,count_batch) * mask.data
+        count_batch = torch.FloatTensor(count_batch).to(device)
+        real_ppl = torch.div((recon_loss + kld).data, count_batch) * mask.data
 
         # remove nan
         for n in real_ppl:
@@ -217,7 +214,6 @@ def evaluate(args, model, corpus_dev, corpus_dev_cnt, dev_batches):
         word_cnt += torch.sum(count_batch)
         doc_cnt += torch.sum(mask.data)
 
-
     # word ppl
     cur_loss = acc_loss[0] / word_cnt  # word loss
     cur_kl = acc_kl_loss / doc_cnt
@@ -225,7 +221,7 @@ def evaluate(args, model, corpus_dev, corpus_dev_cnt, dev_batches):
 
     elapsed = time.time() - start_time
 
-    print( 'loss {:5.2f} | KL {:5.2f} | ppl {:8.2f}'.format(
+    print('loss {:5.2f} | KL {:5.2f} | ppl {:8.2f}'.format(
 
-            cur_loss, cur_kl, np.exp(print_ppl)))
+        cur_loss, cur_kl, np.exp(print_ppl)))
     return print_ppl

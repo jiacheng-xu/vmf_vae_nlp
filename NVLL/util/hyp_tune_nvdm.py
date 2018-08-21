@@ -2,13 +2,13 @@ base = 'PYTHONPATH=../../ python ../nvll.py --cuda ' \
        '--lr 1 --batch_size 50 --eval_batch_size 50' \
        ' --log_interval 400 --model nvdm --epochs 100  ' \
        '--optim sgd  --clip 1 ' \
-       '--data_path data/20ng --data_name 20ng ' \
+       '--data_path data/rcv --data_name rcv ' \
        ' --dist vmf'
 
 path_big = " --exp_path /home/cc/exp-nvdm --root_path /home/cc/vae_txt  "
 path_eve = " --exp_path /backup2/jcxu/exp-nvdm --root_path /home/jcxu/vae_txt  "
 
-base = base + path_big
+base = base + path_eve
 
 bag = []
 for drop in [0.1]:
@@ -27,7 +27,7 @@ for drop in [0.1]:
                                 print(tmp)
                                 bag.append(tmp)
                         elif lat_dim == 50:
-                            for kappa in [35, 50, 65, 80, 95, 110, 125]:
+                            for kappa in [150]:
                                 tmp = base + ' --dropout {} --emsize {} --nhid {} ' \
                                              '--aux_weight {} --dist {} --kappa {} --lat_dim {}' \
                                              ' '.format \

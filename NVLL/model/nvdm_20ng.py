@@ -34,13 +34,14 @@ class BowVAE(torch.nn.Module):
             self.dist = vMF(n_hidden, n_lat, kappa=self.args.kappa)
         elif self.dist_type == 'unifvmf':
             self.dist = unif_vMF(n_hidden, n_lat, kappa=self.args.kappa, norm_func=self.args.norm_func)
+        elif self.dist_type == 'sph':
+            self.dist = VmfDiff(n_hidden, n_lat)
         else:
             raise NotImplementedError
 
         # Decoding
-        self.dec_linear = torch.nn.Linear(self.n_lat, self.n_hidden)
-        self.dec_act = torch.nn.Tanh()
 
+        self.dec_vec = torch.nn.Linear(self.n_lat, self.n_hidden)
         self.out = torch.nn.Linear(self.n_hidden, self.vocab_size)
 
     def forward(self, x):
@@ -64,11 +65,12 @@ class BowVAE(torch.nn.Module):
         avg_norm = torch.mean(tup['norm'])
         tup['avg_cos'] = avg_cos
         tup['avg_norm'] = avg_norm
+        linear_code = self.dec_vec(vecs)
+        active_code = self.active(linear_code)
 
-        flatten_vecs = vecs.view(self.n_sample * batch_sz, self.n_lat)
-        flatten_vecs = self.dec_act(self.dec_linear(flatten_vecs))
+        flatten_vecs = active_code.view(self.n_sample * batch_sz, self.n_hidden)
         logit = self.dropout(self.out(flatten_vecs))
-        logit = torch.nn.functional.log_softmax(logit)
+        logit = torch.nn.functional.log_softmax(logit,dim=1)
         logit = logit.view(self.n_sample, batch_sz, self.vocab_size)
         flatten_x = x.unsqueeze(0).expand(self.n_sample, batch_sz, self.vocab_size)
         error = torch.mul(flatten_x, logit)
