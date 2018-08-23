@@ -30,7 +30,7 @@ def parse_arg():
     parser.add_argument('--epochs', type=int, default=200,
                         help='upper epoch limit')
 
-    parser.add_argument('--kl_weight', type=float, default=1,
+    parser.add_argument('--kl_weight', type=float, default=1    ,
                         help='default scaling item for KL')
     parser.add_argument('--aux_weight', type=float, default=0.00001,
                         help='default scaling item for auxiliary objective term(s).  0.001 or less is good for the mu term')

@@ -22,11 +22,12 @@ class BesselIve(torch.autograd.Function):
         to stash information for backward computation. You can cache arbitrary
         objects for use in the backward pass using the ctx.save_for_backward method.
         """
-        ctx.save_for_backward(dim.double(), kappa)
-        m = sp.ive(dim, kappa.detach())
+        ctx.save_for_backward(dim, kappa)
+        kappa_copy = kappa.clone()
+        m = sp.ive(dim, kappa_copy)
         x = torch.tensor(m).to(device)
         # x = torch.from_numpy(np.asarray(sp.ive(dim, kappa)))
-        return x
+        return x.clone()
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -35,6 +36,7 @@ class BesselIve(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
+        # print('called')
         dim, kappa = ctx.saved_tensors
         grad_input = grad_output.clone()
         grad = grad_input * (bessel_ive(dim - 1, kappa) - bessel_ive(dim, kappa) * (dim + kappa) / kappa)
@@ -57,11 +59,12 @@ class BesselIv(torch.autograd.Function):
         to stash information for backward computation. You can cache arbitrary
         objects for use in the backward pass using the ctx.save_for_backward method.
         """
-        ctx.save_for_backward(dim.double(), kappa)
-        m = sp.iv(dim, kappa.detach())
+        ctx.save_for_backward(dim, kappa)
+
+        kappa_copy = kappa.clone()
+        m = sp.iv(dim, kappa_copy)
         x = torch.tensor(m).to(device)
-        # x = torch.from_numpy(np.asarray(sp.ive(dim, kappa)))
-        return x
+        return x.clone()
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -70,6 +73,7 @@ class BesselIv(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
+        # print('called')
         dim, kappa = ctx.saved_tensors
         grad_input = grad_output.clone()
         # grad = grad_input * (bessel_ive(dim - 1, kappa) - bessel_ive(dim, kappa) * (dim + kappa) / kappa)
@@ -82,13 +86,12 @@ bessel_ive = BesselIve.apply
 bessel_iv = BesselIv.apply
 
 
-# dim = torch.tensor(1.0).to(device)
-# kappa = torch.tensor(10.0,requires_grad=True).double().to(device)
-# save = True
-# res = torch.autograd.gradcheck(bessel, (dim, kappa), raise_exception=True)
-#
-# print(res) # res should be True if the gradients are correct.
-# exit()
+dim = torch.tensor(3.0).to(device)
+kappa = torch.tensor(100.0,requires_grad=True).to(device)
+res = torch.autograd.gradcheck(bessel_ive, (dim, kappa), raise_exception=True)
+
+print(res)
+exit()
 
 class VmfDiff(torch.nn.Module):
     def __init__(self, hid_dim, lat_dim):
@@ -99,11 +102,12 @@ class VmfDiff(torch.nn.Module):
         self.func_kappa = torch.nn.Linear(hid_dim, 1)
         # self.kld = GVar(torch.from_numpy(vMF._vmf_kld(kappa, lat_dim)).float())
         # print('KLD: {}'.format(self.kld.data[0]))
-        self.nonneg = torch.nn.Softplus()
+        self.nonneg = torch.nn.ReLU()
 
     def estimate_param(self, latent_code):
         ret_dict = {}
-        ret_dict['kappa'] = self.nonneg(self.func_kappa(latent_code))
+        print(torch.max(self.func_kappa(latent_code)).item())
+        ret_dict['kappa'] = self.nonneg(1 + self.func_kappa(latent_code) * 5 ) +1
 
         # Only compute mu, use mu/mu_norm as mu,
         #  use 1 as norm, use diff(mu_norm, 1) as redundant_norm
@@ -131,19 +135,22 @@ class VmfDiff(torch.nn.Module):
         const = torch.tensor(
             np.log(np.pi) * d / 2 + np.log(2) - sp.loggamma(d / 2).real - (d / 2) * np.log(2 * np.pi)).to(
             device)
-        # print(const)
         d = torch.tensor([d], dtype=torch.float).to(device)
         batchsz = kappa.size()[0]
+
+        rt_tensor = torch.zeros(batchsz)
         for k_idx in range(batchsz):
             k = kappa[k_idx]
             # print(k)
             # print(k)
             # print(d)
-            first = k * bessel_ive(d / 2, k) / bessel_ive(d / 2 - 1, k)
+            first = k * bessel_iv(d / 2, k) / bessel_iv(d / 2 - 1, k)
             second = (d / 2 - 1) * torch.log(k) - torch.log(bessel_iv(d / 2 - 1, k))
-            combin = (first + second + const)
-            rt_bag.append(combin)
-        return torch.tensor(rt_bag).to(device)
+            combin = first + second + const
+            rt_tensor[k_idx] = combin
+            # rt_bag.append(combin)
+        return rt_tensor.to(device)
+        # return torch.tensor(rt_bag,requires_grad=True).to(device)
 
     def build_bow_rep(self, lat_code, n_sample):
         batch_sz = lat_code.size()[0]
@@ -154,11 +161,11 @@ class VmfDiff(torch.nn.Module):
 
         kld = self.compute_KLD(tup, batch_sz)
         vecs = []
-        kappa = kappa.detach().cpu().numpy()
+        kappa_clone = kappa.detach().cpu().numpy()
         if n_sample == 1:
-            return tup, kld, self.sample_cell(mu, norm, kappa)
+            return tup, kld, self.sample_cell(mu, norm, kappa_clone)
         for n in range(n_sample):
-            sample = self.sample_cell(mu, norm, kappa)
+            sample = self.sample_cell(mu, norm, kappa_clone)
             vecs.append(sample)
         vecs = torch.cat(vecs, dim=0)
         return tup, kld, vecs
