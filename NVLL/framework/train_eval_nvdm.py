@@ -40,7 +40,7 @@ class Runner():
 
         try:
             for epoch in range(1, self.args.epochs + 1):
-                self.args.kl_weight = schedule(epoch)
+                # self.args.kl_weight = schedule(epoch)
 
                 epoch_start_time = time.time()
 
@@ -172,7 +172,7 @@ class Runner():
             data_batch = GVar(torch.FloatTensor(data_batch))
 
             recon_loss, kld, aux_loss, tup, vecs = model(data_batch)
-
+            print("Recon: {}\t KL: {}".format(recon_loss,kld))
             # total_loss = torch.mean(recon_loss + kld * args.kl_weight)
             total_loss = torch.mean(recon_loss + kld * args.kl_weight + aux_loss * args.aux_weight)
             total_loss.backward()
