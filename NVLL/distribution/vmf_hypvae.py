@@ -86,12 +86,12 @@ bessel_ive = BesselIve.apply
 bessel_iv = BesselIv.apply
 
 
-dim = torch.tensor(3.0).to(device)
-kappa = torch.tensor(100.0,requires_grad=True).to(device)
-res = torch.autograd.gradcheck(bessel_ive, (dim, kappa), raise_exception=True)
-
-print(res)
-exit()
+# dim = torch.tensor(3.0).to(device)
+# kappa = torch.tensor(100.0,requires_grad=True).to(device)
+# res = torch.autograd.gradcheck(bessel_ive, (dim, kappa), raise_exception=True)
+#
+# print(res)
+# exit()
 
 class VmfDiff(torch.nn.Module):
     def __init__(self, hid_dim, lat_dim):
@@ -106,9 +106,10 @@ class VmfDiff(torch.nn.Module):
 
     def estimate_param(self, latent_code):
         ret_dict = {}
-        print(torch.max(self.func_kappa(latent_code)).item())
-        ret_dict['kappa'] = self.nonneg(1 + self.func_kappa(latent_code) * 5 ) +1
-
+        # print(torch.max(self.func_kappa(latent_code)).item())
+        # ret_dict['kappa'] = self.nonneg(1 + self.func_kappa(latent_code) * 5 ) +1
+        ret_dict['kappa'] = torch.max(torch.min(self.func_kappa(latent_code) * 10 + 50, torch.tensor(150.0).to(device)),
+                                      torch.tensor(10.0).to(device))
         # Only compute mu, use mu/mu_norm as mu,
         #  use 1 as norm, use diff(mu_norm, 1) as redundant_norm
         mu = self.func_mu(latent_code)

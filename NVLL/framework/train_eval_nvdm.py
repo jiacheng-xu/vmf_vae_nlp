@@ -172,14 +172,13 @@ class Runner():
             data_batch = GVar(torch.FloatTensor(data_batch))
 
             recon_loss, kld, aux_loss, tup, vecs = model(data_batch)
-            print("Recon: {}\t KL: {}".format(recon_loss,kld))
+            # print("Recon: {}\t KL: {}".format(recon_loss,kld))
             # total_loss = torch.mean(recon_loss + kld * args.kl_weight)
             total_loss = torch.mean(recon_loss + kld * args.kl_weight + aux_loss * args.aux_weight)
             total_loss.backward()
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-
             self.optim.step()
 
             count_batch = GVar(torch.FloatTensor(count_batch))

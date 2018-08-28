@@ -2,6 +2,7 @@ from vmf_hypvae import *
 import torch
 import numpy as np
 
+
 def kl_histogram_vs_uniform(samples):
     # uniform: 1/max_range
     max_range = 2 * np.pi
@@ -10,11 +11,11 @@ def kl_histogram_vs_uniform(samples):
     total_num = 0
     total_kl = 0.0
     for i in range(num_splits):
-        lb = max_range * i/float(num_splits)
-        ub = max_range * (i+1)/float(num_splits)
+        lb = max_range * i / float(num_splits)
+        ub = max_range * (i + 1) / float(num_splits)
         num_in_this = len(list(filter(lambda x: lb <= x and x < ub, samples)))
         total_num += num_in_this
-        pi = float(num_in_this)/float(len(samples))
+        pi = float(num_in_this) / float(len(samples))
         if pi > 0.0:
             total_kl += pi * (np.log(pi) - np.log(unif))
     if total_num != len(samples):
@@ -48,8 +49,7 @@ def check_kappa(kappa):
         samples.append(angle_in_rads.item())
     kl_histogram_vs_uniform(samples)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     for kappa in [5.0, 10.0, 20.0, 30.0]:
         check_kappa(kappa)
-
-
