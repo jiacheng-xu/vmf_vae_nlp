@@ -14,8 +14,8 @@ Please cite:
 
 Keyword: **PyTorch**, **VAE**, **NLP**
 What to get from this repo: 
-* Original **Gaussian VAE** with tuned hyper-parameters and pre-trained models;
-* Novel **von-Mises Fisher VAE (vMF-VAE)** with tuned hyper-parameters and pre-trained models.
+* Original **Gaussian VAE**;
+* Novel **von-Mises Fisher VAE (vMF-VAE)** with tuned hyper-parameters.
 
 ## Setup
 The environment base is Python 3.6 and Anaconda.
@@ -33,7 +33,7 @@ In this paper, we use the exact same pre-processed dataset, 20NG and RC, as Miao
 * [Download RC](https://utexas.box.com/s/36iue908zi0m41ee4ciy8e2xi48bcwko) (Email me or submit an issue if it doesn't work)
 * Location of 20 News Group(20ng): `data/20ng`.
 
-####Data for Language Model
+#### Data for Language Model
 We use the standard PTB and Yelp. Datasets are included in `data`.
 
 ## Running
@@ -56,9 +56,12 @@ The choice of cpu or gpu can be modified at `NVLL/util/gpu_flag.py`.
 
 #### Training Neural Variational Recurrent Language Model (NVRNN)
      
+     cd NVLL
+     # Training vMF VAE on PTB
+     # Training vMF VAE on Yelp
 
 ## Reference
-
+Under construction
 
 ## Contact
 Submit an issue here or find more information in my [homepage](http://www.cs.utexas.edu/~jcxu/).
