@@ -17,7 +17,10 @@ What to get from this repo:
 ## Illustration
 #### Optimization
 
-![alt text](image/kl_collapse.jpg "Illustration of the optimization")
+
+
+<img src="image/kl_collapse.jpg" alt="Illustration of the optimization" width="200"/>
+
 Figure: the visualization of optimization of how q varies over time for a single example during learning.  
 
 * Gaussian: the KL term tends to pull the model to-wards the prior (moving from μ,σ to μ′,σ′);
