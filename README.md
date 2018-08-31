@@ -6,7 +6,7 @@ In this repo, we provide the experimental setups and inplementation for the algo
     Spherical Latent Spaces for Stable Variational Autoencoders.
     Jiacheng Xu and Greg Durrett. EMNLP 2018.
     
-The arXiv version has been submitted.    
+Author: [Jiacheng Xu](http://www.cs.utexas.edu/~jcxu/) and [Greg Durrett](http://www.cs.utexas.edu/~gdurrett/index.shtml). The arXiv version has been submitted.    
     
 ## About
 
