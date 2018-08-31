@@ -1,7 +1,7 @@
 Spherical Latent Spaces for Stable Variational Autoencoders (vMF-VAE)
 =======================
 
-In this repo, we provide the experimental setups and inplementation for the algorithms described in:
+In this repo, we provide the experimental setups and implementation for the algorithms described in:
 
     Spherical Latent Spaces for Stable Variational Autoencoders.
     Jiacheng Xu and Greg Durrett. EMNLP 2018.
@@ -25,12 +25,12 @@ What to get from this repo:
 
 Figure: the visualization of optimization of how q varies over time for a single example during learning.  
 
-* Gaussian: the KL term tends to pull the model to-wards the prior (moving from μ,σ to μ′,σ′);
-* vMF: there  is  no such  pressure  towards  a single distribution. If we fix the dimension and the kappa, KL term is a constant in the optimization objective.
+* Gaussian: the KL term tends to pull the model towards the prior (moving from μ,σ to μ′,σ′);
+* vMF: there  is  no such  pressure  towards  a single distribution. If we fix the dimension and the kappa, the KL term is a constant in the optimization objective.
 
 #### Comparison of the Model
 ![alt text](image/model.jpg "Model")
-Figure: the model architecture. The left one is Gaussian and the right one is vMF. More details in paper.
+Figure: the model architecture. The left one is Gaussian and the right one is vMF. More details in the paper.
 ## Setup
 The environment base is Python 3.6 and Anaconda.
 
@@ -58,7 +58,7 @@ The choice of cpu or gpu can be modified at `NVLL/util/gpu_flag.py`.
 
 ### Explanation of Options \& Arguments
 
-If you want to play around the {Gaussian, vMF} VAE model for {document model, language model}, there are many possible settings.
+If you want to play around with the {Gaussian, vMF} VAE model for {document model, language model}, there are many possible settings.
 You can pass command-line arguments and the `NVLL/argparser.py` will handle the arguments. I will explain some nontrivial arguments. 
 
 | Option        | Usage           | Value (Range) |
@@ -117,9 +117,7 @@ Please cite:
       author =      "Xu, Jiacheng and Durrett, Greg",
       title =       "Spherical Latent Spaces for Stable Variational Autoencoders",
       booktitle =   "Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing",
-      publisher = "Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing",
       year =        "2018",
-      address =     "Brussels, Belgium",
     }
     
     
