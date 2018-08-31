@@ -19,7 +19,7 @@ What to get from this repo:
 
 
 
-<img src="image/kl_collapse.jpg" alt="Illustration of the optimization" width="200"/>
+<img src="image/kl_collapse.jpg" alt="Illustration of the optimization" width="400"/>
 
 Figure: the visualization of optimization of how q varies over time for a single example during learning.  
 
