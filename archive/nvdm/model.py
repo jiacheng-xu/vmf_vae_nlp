@@ -1,6 +1,6 @@
 import torch
 
-from nvdm.dist import Gauss, vMF, HighVarGauss
+from archive.nvdm.dist import Gauss, vMF, HighVarGauss
 
 
 class BowVAE(torch.nn.Module):

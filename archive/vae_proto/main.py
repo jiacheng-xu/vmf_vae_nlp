@@ -8,8 +8,8 @@ import torch
 import torch.nn as nn
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable as Var
-from vae_proto import data
-from vae_proto import util
+from archive.vae_proto import data
+from archive.vae_proto import util
 
 
 parser = argparse.ArgumentParser(description='PyTorch VAE LSTM Language Model')
@@ -103,13 +103,13 @@ ntokens = len(corpus.dictionary)
 print('Dict size: %d' % ntokens)
 
 if args.model.lower() == 'lstm':
-    from vae_proto import rnn_model
+    from archive.vae_proto import rnn_model
 
-    model = rnn_model.RNNModel( ntokens, args.emsize, args.nhid,0, args.nlayers, args.dropout, args.tied)
+    model = rnn_model.RNNModel(ntokens, args.emsize, args.nhid, 0, args.nlayers, args.dropout, args.tied)
 elif args.model.lower() == 'vae':
-    from vae_proto import vae_model
+    from archive.vae_proto import vae_model
 
-    model = vae_model.VAEModel(args,args.decoder, ntokens, args.emsize, args.nhid, args.lat_dim,args.nlayers, args.dropout, args.tied)
+    model = vae_model.VAEModel(args, args.decoder, ntokens, args.emsize, args.nhid, args.lat_dim, args.nlayers, args.dropout, args.tied)
 else:
     raise NotImplementedError
 print("Model {}".format(model))

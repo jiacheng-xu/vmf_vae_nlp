@@ -2,10 +2,9 @@
 from __future__ import print_function
 
 import numpy as np
-import torch
-import math
 import os
-import nvdm.util as utils
+from archive import nvdm as utils
+
 np.random.seed(0)
 tf.set_random_seed(0)
 

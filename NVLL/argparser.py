@@ -15,7 +15,9 @@ def parse_arg():
     parser.add_argument('--enc_type', type=str, default='lstm', help='lstm or gru or bow')
 
     parser.add_argument('--dist', type=str, default='vmf',
-                        help='nor or vmf or zero. nor is gaussian, zero means not using anything from encoder side (pure lstm language model)')
+                        help='nor or vmf or zero or sph. '
+                             'nor is gaussian; zero means not using anything from encoder side (pure lstm language model).'
+                             'vmf is fixed kappa vmf; sph is dynamic kappa version of the vmf.')
     parser.add_argument('--kappa', type=float, default=0.1, help='pre-set kappa value for default vMF VAE.')
 
     parser.add_argument('--emsize', type=int, default=400, help='size of word embeddings')
@@ -30,7 +32,7 @@ def parse_arg():
     parser.add_argument('--epochs', type=int, default=200,
                         help='upper epoch limit')
 
-    parser.add_argument('--kl_weight', type=float, default=0.01    ,
+    parser.add_argument('--kl_weight', type=float, default=1,
                         help='default scaling item for KL')
     parser.add_argument('--aux_weight', type=float, default=0.00001,
                         help='default scaling item for auxiliary objective term(s).  0.001 or less is good for the mu term')
@@ -45,10 +47,6 @@ def parse_arg():
                         help='tie the word embedding and softmax weights')
 
     parser.add_argument('--seed', type=int, default=1111, help='random seed')
-    # parser.add_argument('--cuda', action='store_true', help='use CUDA')  # TODO
-    # parser.add_argument('--log-interval', type=int, default=100, metavar='N',
-    #                     help='report interval')
-
     # parser.add_argument('--exp', type=str, default='../exp', help='file dir to save and load all models and logs')
     parser.add_argument('--load', type=str, default=None, help='Name of previous model to be restored')
 
@@ -60,7 +58,7 @@ def parse_arg():
 
     parser.add_argument('--input_z', action='store_true', default=False,
                         help="Input the latent code z at every time step during decoding.")
-    parser.add_argument('--mix_unk', type=float, default=0, help='')
+    parser.add_argument('--mix_unk', type=float, default=0, help='How much of the input is mixed with UNK token')
 
     parser.add_argument('--swap', action='store', default=0.0, type=float,
                         help='Probability of swapping a word')

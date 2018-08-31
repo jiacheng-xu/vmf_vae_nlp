@@ -9,8 +9,8 @@ import numpy as np
 
 from tensorboardX import SummaryWriter
 
-import nvdm.util as util
-from nvdm.model import BowVAE
+from archive import nvdm as util
+from archive.nvdm import BowVAE
 
 parser = argparse.ArgumentParser(description='PyTorch VAE LSTM Language Model')
 

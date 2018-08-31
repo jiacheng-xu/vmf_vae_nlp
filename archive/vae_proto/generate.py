@@ -8,11 +8,8 @@ import logging
 import argparse
 import math
 import torch
-from torch.autograd import Variable
-from vae_proto import vae_model
-from vae_proto import rnn_model
-from vae_proto import data
-from vae_proto import util
+from archive.vae_proto import data
+from archive.vae_proto import util
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 Language Model')
 
@@ -65,7 +62,7 @@ corpus = data.Corpus(args.data)
 ntokens = len(corpus.dictionary)
 
 
-test_data = util.make_batch(args,corpus.test, args.eval_batch_size, shuffle=False)
+test_data = util.make_batch(args, corpus.test, args.eval_batch_size, shuffle=False)
 
 nll = util.decode_inputless(args, model, corpus, test_data)
 ppl = math.exp(nll)

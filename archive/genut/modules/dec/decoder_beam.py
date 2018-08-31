@@ -1,14 +1,11 @@
-import random
-import unittest
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.optim
 from torch.autograd import Variable as Var
 
 
-from genut.util.beam import Beam
-from genut.modules.attention import Attention
+from archive.genut import Beam
+
 
 def beam_decode(self, context, context_msk, state, inp_var, feat, max_oov, scatter_mask):
     """

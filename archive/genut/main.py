@@ -1,10 +1,9 @@
-from genut.data.load_data import *
 # from genut.models.seq2seq_vae import
-from genut.data.load_data import load_prev_state
-from genut.models.lm import RNNLM
-from genut.util.argparser import ArgParser
-from genut.util.eval_lm import Tester
-from genut.util.train_lm import LMTrainer
+from archive.genut import load_prev_state
+from archive.genut import RNNLM
+from archive.genut.util.argparser import ArgParser
+from archive.genut import Tester
+from archive.genut import LMTrainer
 
 if __name__ == "__main__":
 

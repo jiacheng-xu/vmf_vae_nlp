@@ -5,7 +5,6 @@ import math
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from original_pytorch import *
 import data
 import model
 

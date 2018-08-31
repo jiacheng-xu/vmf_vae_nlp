@@ -1,8 +1,6 @@
 import logging
 import os
 
-from genut.util.helper import *
-
 
 def load_word_dict(opt):
     """

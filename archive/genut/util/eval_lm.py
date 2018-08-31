@@ -1,15 +1,10 @@
-import copy
-import random
 from torch import nn
 import numpy as np
-import os
-import torch
 from torch.autograd import Variable as Var
 import math
 import logging
 # from pythonrouge.pythonrouge import Pythonrouge
-from genut.util.train_lm import LMTrainer
-from genut.util.helper import msk_list_to_mat
+from archive.genut import msk_list_to_mat
 
 class Tester:
     def __init__(self, opt, model, data, write_file, verbose=True, path='/home/jcxu/exp-ptb'):

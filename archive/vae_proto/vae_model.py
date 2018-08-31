@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.autograd import Variable as Var
-from vae_proto import util, vMF
+from archive.vae_proto import vMF
 
 class VAEModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""

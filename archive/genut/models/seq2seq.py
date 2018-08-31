@@ -1,7 +1,7 @@
 import torch.nn as nn
-from genut.modules.embedding import SingleEmbeddings
-from genut.modules.enc.rnn_enc import RNNEncoder
-from genut.modules.dec.decoder import RNNDecoder
+from archive.genut import SingleEmbeddings
+from archive.genut.modules.enc import RNNEncoder
+from archive.genut.modules.dec.decoder import RNNDecoder
 
 
 class Seq2seq(nn.Module):

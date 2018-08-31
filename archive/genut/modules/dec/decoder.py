@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim
 from torch.autograd import Variable as Var
 
-from genut.modules.attention import Attention
+from archive.genut import Attention
 
 class RNNDecoder(nn.Module):
     def __init__(self, opt, rnn_type='lstm', num_layers=1,

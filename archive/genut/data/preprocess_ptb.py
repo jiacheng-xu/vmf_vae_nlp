@@ -1,6 +1,6 @@
 import os
 import pickle
-from genut.util.struct import Dict
+from archive.genut import Dict
 import torch
 
 TRAIN_BATCH_SZ = 20

@@ -1,4 +1,3 @@
-import os
 import logging
 import math
 import os
@@ -8,8 +7,8 @@ import torch
 from torch import nn
 from torch.autograd import Variable as Var
 
-from genut.util.helper import msk_list_to_mat
-from genut.util.train import Trainer
+from archive.genut import msk_list_to_mat
+from archive.genut import Trainer
 
 
 class LMTrainer(Trainer):

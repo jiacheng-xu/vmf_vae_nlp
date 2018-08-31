@@ -52,6 +52,16 @@ class vMF(torch.nn.Module):
             exit()
         return np.array([tmp])
 
+
+    @staticmethod
+    def _vmf_kld_davidson(k, d):
+        tmp = (k * ((sp.iv(d / 2.0 + 1.0, k) + sp.iv(d / 2.0, k) * d / (2.0 * k)) / sp.iv(d / 2.0, k) - d / (2.0 * k)) \
+               + d * np.log(k) / 2.0 - np.log(sp.iv(d / 2.0, k)) \
+               - sp.loggamma(d / 2 + 1) - d * np.log(2) / 2).real
+        if tmp != tmp:
+            exit()
+        return np.array([tmp])
+
     def build_bow_rep(self, lat_code, n_sample):
         batch_sz = lat_code.size()[0]
         tup = self.estimate_param(latent_code=lat_code)

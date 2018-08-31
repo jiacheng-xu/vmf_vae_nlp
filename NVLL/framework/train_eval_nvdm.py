@@ -69,9 +69,9 @@ class Runner():
     def end(self):
         # Load the best saved model.
         if self.args.data_name == '20ng':
-            from NVLL.model.nvdm_rc import BowVAE
+            from NVLL.model.nvdm import BowVAE
         elif self.args.data_name == 'rcv':
-            from NVLL.model.nvdm_rc import BowVAE
+            from NVLL.model.nvdm import BowVAE
         else:
             raise NotImplementedError
         model = BowVAE(self.args, vocab_size=self.data.vocab_size, n_hidden=self.args.nhid,
