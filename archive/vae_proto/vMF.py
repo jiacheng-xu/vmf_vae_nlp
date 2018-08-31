@@ -6,7 +6,7 @@ from torch.autograd import Variable
 
 
 class vmf():
-    def __init__(self, norm_eps, norm_max,kappa):
+    def __init__(self, norm_eps, norm_max, kappa):
         self.kappa = kappa
         self.norm_eps = norm_eps
         self.norm_max = norm_max

@@ -54,7 +54,7 @@ def parse_arg():
     parser.add_argument('--optim', type=str, default='adam', help='sgd or adam. name of optimizer')
 
     parser.add_argument('--norm_func', action='store_true', default=False,
-                        help='For Unif+vMF, choose whether to use additional function to compute z_norm')
+                        help='For Unif+vMF only, choose whether to use additional function to compute z_norm')
 
     parser.add_argument('--input_z', action='store_true', default=False,
                         help="Input the latent code z at every time step during decoding.")
@@ -66,7 +66,6 @@ def parse_arg():
                         help='Probability of replacing a word with a random word.')
 
     parser.add_argument('--bi', action='store_true', default=False, help='Bidirection for encoding')
-    # parser.add_argument('--tie_rnn', action='store_true',default=False)
 
     parser.add_argument('--cd_bow', action='store', default=0, type=int, help='Condition on Bag-of-words')
     parser.add_argument('--cd_bit', action='store', default=0, type=int, help='Condition on sentiment bit')
@@ -75,7 +74,7 @@ def parse_arg():
     parser.add_argument('--anneal', action='store', default=0, type=int)
     parser.add_argument('--norm_max', action='store', default=2, type=float)
     parser.add_argument('--nsample', action='store', default=3, type=int, help='Number of samples when sampling')
-    parser.add_argument('--fly', default=False, action='store_true')
+    # parser.add_argument('--fly', default=False, action='store_true')
 
     args = parser.parse_args()
     return args

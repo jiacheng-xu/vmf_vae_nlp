@@ -52,12 +52,15 @@ class vMF(torch.nn.Module):
             exit()
         return np.array([tmp])
 
-
     @staticmethod
     def _vmf_kld_davidson(k, d):
-        tmp = (k * ((sp.iv(d / 2.0 + 1.0, k) + sp.iv(d / 2.0, k) * d / (2.0 * k)) / sp.iv(d / 2.0, k) - d / (2.0 * k)) \
-               + d * np.log(k) / 2.0 - np.log(sp.iv(d / 2.0, k)) \
-               - sp.loggamma(d / 2 + 1) - d * np.log(2) / 2).real
+        """
+        This should be the correct KLD.
+        Empirically we find that _vmf_kld (as in the Guu paper) only deviates a little (<2%) in most cases we use.
+        """
+        tmp = k * sp.iv(d / 2, k) / sp.iv(d / 2 - 1, k) + (d / 2 - 1) * torch.log(k) - torch.log(
+            sp.iv(d / 2 - 1, k)) + np.log(np.pi) * d / 2 + np.log(2) - sp.loggamma(d / 2).real - (d / 2) * np.log(
+            2 * np.pi)
         if tmp != tmp:
             exit()
         return np.array([tmp])

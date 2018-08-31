@@ -1,4 +1,3 @@
-
 class Dict(object):
     def __init__(self, bias=0):
         self.word2idx = {}

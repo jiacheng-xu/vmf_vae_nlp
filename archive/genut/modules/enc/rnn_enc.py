@@ -20,10 +20,10 @@ class RNNEncoder(nn.Module):
         self.reduce_h_W = nn.Linear(hidden_size * 2, hidden_size, bias=True)
         self.reduce_c_W = nn.Linear(hidden_size * 2, hidden_size, bias=True)
         if rnn_type == 'gru':
-            self.rnn = nn.GRU(input_size, hidden_size,batch_first=True,
+            self.rnn = nn.GRU(input_size, hidden_size, batch_first=True,
                               dropout=opt.dropout, bidirectional=self.bidirect)
         elif rnn_type == 'lstm':
-            self.rnn = nn.LSTM(input_size, hidden_size,num_layers=1,batch_first=True,
+            self.rnn = nn.LSTM(input_size, hidden_size, num_layers=1, batch_first=True,
                                dropout=opt.dropout, bidirectional=self.bidirect)
 
         else:
@@ -41,7 +41,7 @@ class RNNEncoder(nn.Module):
             nn.init.xavier_uniform(self.rnn.weight_ih_l0, gain=1)
             nn.init.xavier_uniform(self.rnn.weight_ih_l0_reverse, gain=1)
 
-            torch.nn.init.constant(self.rnn.bias_hh_l0,0)
+            torch.nn.init.constant(self.rnn.bias_hh_l0, 0)
             nn.init.constant(self.rnn.bias_hh_l0_reverse, 0)
             nn.init.constant(self.rnn.bias_ih_l0, 0)
             nn.init.constant(self.rnn.bias_ih_l0_reverse, 0)
@@ -71,7 +71,7 @@ class RNNEncoder(nn.Module):
 
         # list_msk = torch.sum(inp_msk.long(), dim=0).tolist()
 
-        packed_embedding = nn.utils.rnn.pack_padded_sequence(embedded, inp_msk,batch_first=True)
+        packed_embedding = nn.utils.rnn.pack_padded_sequence(embedded, inp_msk, batch_first=True)
 
         if self.rnn_type == 'lstm':
             # output, hn = self.rnn(packed_embedding,
@@ -111,7 +111,7 @@ class RNNEncoder(nn.Module):
                 h_t = (_fix_hidden(hn))
         else:
             raise NotImplementedError
-        return  h_t
+        return h_t
 
 
 class TestStringMethods(unittest.TestCase):

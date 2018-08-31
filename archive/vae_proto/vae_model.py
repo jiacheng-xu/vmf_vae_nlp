@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from torch.autograd import Variable as Var
 from archive.vae_proto import vMF
 
+
 class VAEModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
@@ -13,7 +14,7 @@ class VAEModel(nn.Module):
         self.lat_dim = lat_dim
         self.nhid = nhid
         self.nlayers = nlayers
-        self.ninp= ninp
+        self.ninp = ninp
         self.dist = args.dist
         # VAE shared param
         self.emb = nn.Embedding(ntoken, ninp)
@@ -22,10 +23,10 @@ class VAEModel(nn.Module):
         # BLSTM
         self.enc_rnn = nn.LSTM(ninp, nhid, nlayers, bidirectional=True, dropout=dropout)
         self.drop = nn.Dropout(dropout)  # Need explicit dropout
-        if args.dist =='nor':
+        if args.dist == 'nor':
             self.fc_mu = nn.Linear(2 * nhid * nlayers * 2, lat_dim)  # 2 for bidirect, 2 for h and c
             self.fc_logvar = nn.Linear(2 * nhid * nlayers * 2, lat_dim)
-        elif args.dist =='vmf':
+        elif args.dist == 'vmf':
             self.fc = nn.Linear(2 * nhid * nlayers * 2, lat_dim)
             self.vmf = vMF.vmf(1, 10, args.kappa)
         else:
@@ -43,15 +44,14 @@ class VAEModel(nn.Module):
             if args.fly:
                 self.decoder_rnn = nn.LSTMCell(ninp + nhid, nhid, nlayers)
             else:
-                self.decoder_rnn = nn.LSTM(ninp + nhid, nhid, nlayers,dropout=dropout)
+                self.decoder_rnn = nn.LSTM(ninp + nhid, nhid, nlayers, dropout=dropout)
 
         # or
         # BoW
         elif dec_type == 'bow':
-            self.linear = nn.Linear(nhid+ninp, nhid)
+            self.linear = nn.Linear(nhid + ninp, nhid)
         else:
             raise NotImplementedError
-
 
         if tie_weights:
             if nhid != ninp:
@@ -80,7 +80,7 @@ class VAEModel(nn.Module):
         emb = self.drop(self.emb(input))
         if self.dist == 'nor':
             mu, logvar = self.encode(emb)
-            z = self.reparameterize(mu, logvar)     # z: batch, hid_dim
+            z = self.reparameterize(mu, logvar)  # z: batch, hid_dim
 
             hidden = self.convert_z_to_hidden(z, batch_sz)
             return emb, hidden, mu, logvar
@@ -88,13 +88,12 @@ class VAEModel(nn.Module):
             mu = self.encode(emb)
             mu = mu.cpu()
             z = self.vmf.sample_vMF(mu)
-            z=z.cuda()
+            z = z.cuda()
 
             hidden = self.convert_z_to_hidden(z, batch_sz)
             return emb, hidden, mu
         else:
             raise NotImplementedError
-
 
     def encode(self, emb):
         """
@@ -108,12 +107,12 @@ class VAEModel(nn.Module):
         # num_layers * num_directions, batch, hidden_size
         h = hidden[0]
         c = hidden[1]
-        assert h.size()[0] == self.nlayers*2
+        assert h.size()[0] == self.nlayers * 2
         assert h.size()[1] == batch_sz
-        x = torch.cat((h,c), dim=0).permute(1, 0, 2).contiguous().view(batch_sz, -1)
-        if self.dist =='nor':
+        x = torch.cat((h, c), dim=0).permute(1, 0, 2).contiguous().view(batch_sz, -1)
+        if self.dist == 'nor':
             return self.fc_mu(x), self.fc_logvar(x)
-        elif self.dist =='vmf':
+        elif self.dist == 'vmf':
             return self.fc(x)
         else:
             raise NotImplementedError
@@ -136,15 +135,15 @@ class VAEModel(nn.Module):
             lat_to_cat = hidden[0][0].unsqueeze(0).expand(seq_len, batch_sz, -1)
             emb = torch.cat([emb, lat_to_cat], dim=2)
             output, hidden = self.decoder_rnn(emb, hidden)
-        elif self.dec_type =='bow':
+        elif self.dec_type == 'bow':
             # avg embedding: seq_len, batch_sz, hid_dim
-            emb = torch.mean(emb, dim=0)        # torch.Size([20, 39])
-            lat_to_cat = hidden[0][0]           # torch.Size([20, 49])
-            fusion = torch.cat((emb, lat_to_cat), dim=1) # torch.Size([20, 39+49])
+            emb = torch.mean(emb, dim=0)  # torch.Size([20, 39])
+            lat_to_cat = hidden[0][0]  # torch.Size([20, 49])
+            fusion = torch.cat((emb, lat_to_cat), dim=1)  # torch.Size([20, 39+49])
             # output seq_len, batch, hidden_size * num_directions
-            output = Variable(torch.FloatTensor(seq_len, batch_sz, self.nhid ))
+            output = Variable(torch.FloatTensor(seq_len, batch_sz, self.nhid))
             if self.args.cuda:
-                output= output.cuda()
+                output = output.cuda()
             for t in range(seq_len):
                 noise = 0.1 * Variable(fusion.data.new(fusion.size()).normal_(0, 1))
                 if self.args.cuda:

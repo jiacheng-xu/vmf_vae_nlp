@@ -11,7 +11,6 @@ from torch.autograd import Variable as Var
 from archive.vae_proto import data
 from archive.vae_proto import util
 
-
 parser = argparse.ArgumentParser(description='PyTorch VAE LSTM Language Model')
 
 parser.add_argument('--data_name', type=str, default='20news', help='name of the data corpus')
@@ -22,7 +21,7 @@ parser.add_argument('--decoder', type=str, default='bow', help='lstm or bow; Usi
 
 parser.add_argument('--distribution', type=str, default=None, help='default: None (no vae) ; nor or vmf')
 
-parser.add_argument('--kappa',type=float, default=5)
+parser.add_argument('--kappa', type=float, default=5)
 
 parser.add_argument('--fly', action='store_true', help='Without previous ground truth = inputless decode',
                     default=False)
@@ -59,7 +58,7 @@ parser.add_argument('--save', type=str, default='model.pt',
 parser.add_argument('--kl_weight', type=float, default=1,
                     help='scaling item for KL')
 
-parser.add_argument('--load',type=str,default=None,help='restoring previous model')
+parser.add_argument('--load', type=str, default=None, help='restoring previous model')
 
 args = parser.parse_args()
 
@@ -72,11 +71,11 @@ if torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
 
 args.save_name = 'Data{}_Model{}_Dec{}_Dist{}_Fly{}_Emb{}_Hid{}_lat{}_nlay{}_lr{}_drop{}'.format(
-    args.data_name, args.encoder, args.decoder,str(args.dist),
+    args.data_name, args.encoder, args.decoder, str(args.dist),
     args.fly, args.emsize,
     args.nhid, args.lat_dim, args.nlayers, args.lr,
     args.dropout)
-writer = SummaryWriter(log_dir='exps/'+args.save_name)
+writer = SummaryWriter(log_dir='exps/' + args.save_name)
 
 log_name = args.save_name + '.log'
 logging.basicConfig(filename=log_name, level=logging.INFO)
@@ -109,7 +108,8 @@ if args.model.lower() == 'lstm':
 elif args.model.lower() == 'vae':
     from archive.vae_proto import vae_model
 
-    model = vae_model.VAEModel(args, args.decoder, ntokens, args.emsize, args.nhid, args.lat_dim, args.nlayers, args.dropout, args.tied)
+    model = vae_model.VAEModel(args, args.decoder, ntokens, args.emsize, args.nhid, args.lat_dim, args.nlayers,
+                               args.dropout, args.tied)
 else:
     raise NotImplementedError
 print("Model {}".format(model))
@@ -139,8 +139,7 @@ def train(glob_iteration):
     # Turn on training mode which enables dropout.
     model.train()
 
-
-    if args.model =='vae':
+    if args.model == 'vae':
         # params_kl = list(model.fc_mu.parameters()) + list(model.fc_logvar.parameters()) \
         #             + list(model.z_to_c.parameters()) + list(model.z_to_h.parameters())
         optim = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -197,7 +196,7 @@ def train(glob_iteration):
 
             loss = criterion(output.view(-1, ntokens), targets)
 
-            if args.dist =='nor':
+            if args.dist == 'nor':
                 kld = util.kld(mu, logvar, 1)
             elif args.dist == 'vmf':
                 kld = Var(torch.zeros(1)).cuda()
@@ -232,7 +231,7 @@ def train(glob_iteration):
 
                 writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight,
                                              'cur_loss': cur_loss,
-                                              'ppl': math.exp(cur_loss)
+                                             'ppl': math.exp(cur_loss)
                                              }, global_step=glob_iteration)
 
             elif args.model == 'vae':
@@ -243,9 +242,9 @@ def train(glob_iteration):
                 logging.info(
                     "\t{}\t{}\t{}\t{}\t{}\t{}".format(epoch, glob_iteration, cur_loss, cur_kl, cur_sum,
                                                       math.exp(cur_loss)))
-                writer.add_scalars('train', {'lr':args.lr,'kl_weight':args.kl_weight,
-                                             'cur_loss': cur_loss,'cur_kl':cur_kl,
-                                             'cur_sum':cur_sum,'ppl':math.exp(cur_loss)
+                writer.add_scalars('train', {'lr': args.lr, 'kl_weight': args.kl_weight,
+                                             'cur_loss': cur_loss, 'cur_kl': cur_kl,
+                                             'cur_sum': cur_sum, 'ppl': math.exp(cur_loss)
                                              }, global_step=glob_iteration)
 
             cnt = 0
@@ -273,13 +272,14 @@ def train(glob_iteration):
 
     return glob_iteration
 
+
 # Loop over epochs.
 lr = args.lr
 best_val_loss = None
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
-    glob_iter=0
+    glob_iter = 0
     for epoch in range(1, args.epochs + 1):
         args.kl_weight = util.schedule(epoch)
 

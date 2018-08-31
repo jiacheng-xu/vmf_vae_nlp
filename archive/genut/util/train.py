@@ -31,7 +31,6 @@ class Trainer():
         self.clip = opt.clip
         # self.coverage = self.opt.coverage
 
-
     def weighted_loss(self, decoder_outputs_prob, decoder_outputs, tgt_var):
         """
 
@@ -141,7 +140,7 @@ class Trainer():
 
                 if self.opt.use_cuda:
                     # inp_var = [x.contiguous().cuda() for x in inp_var]
-                    inp_var= inp_var.contiguous().cuda()
+                    inp_var = inp_var.contiguous().cuda()
 
                 self.func_train(inp_var, inp_msk, out_var, out_mask, features, feature_msks, max_oov_len,
                                 scatter_msk, bigram_bunch)
@@ -174,5 +173,6 @@ class Trainer():
                     os.chdir('..')
             # End Saving
             ########
+
     def saver(self):
         pass

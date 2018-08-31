@@ -43,7 +43,7 @@ def check_dispersion(vecs, num_sam=10):
 
 
 def GVar(x):
-    return x.to(device)     # pytorch 0.4.1
+    return x.to(device)  # pytorch 0.4.1
     # if torch.cuda.is_available() and GPU_FLAG:
     #     return torch.autograd.Variable(x).cuda()
     # else:

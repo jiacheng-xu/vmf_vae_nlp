@@ -76,8 +76,6 @@ def load_data(opt):
         logging.error('Unrecognizable mode. 0 - train 1 - test')
         raise Exception
 
-
-
     os.chdir('..')
     if opt.mode == 0:
         cand_ext_dict_size = reset_ext_dict_size(bag)
@@ -87,7 +85,8 @@ def load_data(opt):
     opt.full_dict_size = opt.word_dict_size + opt.ext_dict_size
     logging.info('Full dict size: %d' % opt.full_dict_size)
     os.chdir('..')
-    return opt, [bag,test_bag]
+    return opt, [bag, test_bag]
+
 
 def load_pretrain_word_embedding(opt):
     """
@@ -118,7 +117,8 @@ def load_pretrain_word_embedding(opt):
         logging.warning('Not loading pretraining word embedding.')
     return full_embedding
 
-def load_prev_state(option, module,strict_flag=False):
+
+def load_prev_state(option, module, strict_flag=False):
     if option:
         logging.info('Loading module %s' % option)
         module.load_state_dict(torch.load(option), strict=strict_flag)

@@ -26,24 +26,22 @@ class Seq2seq(nn.Module):
         self.enc = enc
 
         # self.feat = Feat.FeatBase(opt, opt.dicts)
-        self.feat = None    # TODO feature unavail
-
-
+        self.feat = None  # TODO feature unavail
 
         rnn_dec = RNNDecoder(opt, rnn_type='lstm', num_layers=1,
-                                              hidden_size=opt.hid_dim, input_size=opt.inp_dim, attn_type='general',
-                                              coverage=opt.coverage,
-                                              copy=opt.copy, dropout=opt.dropout, emb=self.emb,
-                                              full_dict_size=self.opt.full_dict_size,
-                                              word_dict_size=self.opt.word_dict_size,
-                                              max_len_dec=opt.max_len_dec)
+                             hidden_size=opt.hid_dim, input_size=opt.inp_dim, attn_type='general',
+                             coverage=opt.coverage,
+                             copy=opt.copy, dropout=opt.dropout, emb=self.emb,
+                             full_dict_size=self.opt.full_dict_size,
+                             word_dict_size=self.opt.word_dict_size,
+                             max_len_dec=opt.max_len_dec)
 
         self.dec = rnn_dec
 
     def forward(self, inp_var, inp_msk, tgt_var=None, tgt_msk=None, aux=None):
-        if self.training:       # train mode
+        if self.training:  # train mode
             self.forward_train(inp_var, inp_msk, tgt_var, tgt_msk, aux)
-        else:                   # eval mode
+        else:  # eval mode
             self.forward_eval(inp_var, inp_msk, aux)
 
     def forward_train(self, inp_var, inp_msk, tgt_var, tgt_msk, aux):

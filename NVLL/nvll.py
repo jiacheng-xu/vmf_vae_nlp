@@ -11,8 +11,7 @@ from NVLL.util.gpu_flag import device
 def set_seed(args):
     torch.manual_seed(args.seed)
     if device == torch.device("cuda"):
-
-            torch.cuda.manual_seed(args.seed)
+        torch.cuda.manual_seed(args.seed)
 
 
 def set_save_name_log_nvdm(args):

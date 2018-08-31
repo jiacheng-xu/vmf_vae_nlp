@@ -5,7 +5,7 @@ import os
 
 import util
 from CONSTANTS import *
-from  util import *
+from util import *
 from util import Logger
 
 # import GPUtil
@@ -300,9 +300,8 @@ class Trainer(object):
             _msk = torch.gt(discount, 0).view(target_len * batch_size, -1).float()
 
             # x = torch.masked_select(losses, _msk)
-            discount = 1-torch.sum(losses * _msk) / 500
+            discount = 1 - torch.sum(losses * _msk) / 500
             # print(x)
-
 
             # reward_msk = 1 - torch.gt(discount, 0).float().view(target_len * batch_size, -1) * 99./100.
             # sta_weighted_loss = torch.mean(losses * reward_msk)

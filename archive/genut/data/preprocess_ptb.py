@@ -15,6 +15,7 @@ def preprocess_data(path):
     def _append_eos(list):
         for idx in range(len(list)):
             list[idx].append('<eos>')
+
     _append_eos(train)
     _append_eos(valid)
     _append_eos(test)
@@ -38,7 +39,7 @@ def preprocess_data(path):
     for w in word_order:
         d.add_word(w)
     print(len(d))
-    with open(os.path.join(path, str(len(d))+'_ptb.vocab.dict'), 'wb') as fd:
+    with open(os.path.join(path, str(len(d)) + '_ptb.vocab.dict'), 'wb') as fd:
         pickle.dump(d, fd)
 
 

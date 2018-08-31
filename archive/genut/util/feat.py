@@ -12,12 +12,12 @@ import numpy as np
 import torch
 from torch.autograd import Variable as Var
 
+
 # https://www.aclweb.org/anthology/E/E14/E14-1075.pdf
 # Word Locations. very significant.  Positional encoding
 # Word type
 # Context feature
 # Unigram feature
-
 
 
 class FeatBase():
@@ -207,7 +207,6 @@ class FeatBase():
         # Time profile result: everytime cost 0.05 secs, seems okay.
 
         # start = time.time()
-
 
         ori_txt = current_batch['ori_txt']
         inp_var = [current_batch['txt'], current_batch['pos'], current_batch['ner']]
@@ -552,4 +551,3 @@ class SparseFeat():
         # end = time.time()
         # print(end-start)
         return rt_feat
-

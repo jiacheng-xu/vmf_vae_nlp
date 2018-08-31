@@ -9,6 +9,7 @@ from torch.autograd import Variable as Var
 
 from archive.genut import Attention
 
+
 class RNNDecoder(nn.Module):
     def __init__(self, opt, rnn_type='lstm', num_layers=1,
                  hidden_size=100, input_size=50, attn_type='dot', coverage=False,

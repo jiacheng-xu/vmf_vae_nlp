@@ -58,7 +58,7 @@ class SimpleRNNDecoder(nn.Module):
         inp_size, batch_size__ = input.size()
 
         assert inp_size == 1
-        assert batch_size__==batch_size_
+        assert batch_size__ == batch_size_
 
         # Start running
         if self.opt.use_cuda:
@@ -83,7 +83,7 @@ class SimpleRNNDecoder(nn.Module):
         else:
             raise NotImplementedError
 
-        hidden_state_vocab = torch.cat([ current_state_h, current_state_c], 1)
+        hidden_state_vocab = torch.cat([current_state_h, current_state_c], 1)
         hidden_state_vocab = self.W_out_0(hidden_state_vocab)
         # prob_vocab = F.softmax(hidden_state_vocab)
 
@@ -125,18 +125,17 @@ class SimpleRNNDecoder(nn.Module):
             # Record
             decoder_outputs[t] = topi
 
-            if mode:    # train mode
+            if mode:  # train mode
                 if random.random() >= self.opt.schedule:
                     decoder_input = topi
                     decoder_input = Var(decoder_input.unsqueeze(0))
                     # print(decoder_input.size())
                 else:
-                    decoder_input = Var(tgt_var[:,t]).unsqueeze(0)
-            else:   # eval mode
+                    decoder_input = Var(tgt_var[:, t]).unsqueeze(0)
+            else:  # eval mode
                 decoder_input = Var(tgt_var[:, t]).unsqueeze(0)
 
         return decoder_outputs_prob, decoder_outputs
-
 
     def init_weight(self):
         # kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros'
@@ -145,7 +144,7 @@ class SimpleRNNDecoder(nn.Module):
             nn.init.xavier_uniform(self.rnn.weight_ih, gain=1)
             nn.init.xavier_uniform(self.rnn.weight_hh, gain=1)
 
-            torch.nn.init.constant(self.rnn.bias_ih,0)
+            torch.nn.init.constant(self.rnn.bias_ih, 0)
             nn.init.constant(self.rnn.bias_hh, 0)
         elif self.rnn_type == 'gru':
             nn.init.xavier_uniform(self.rnn.weight.data, gain=1)

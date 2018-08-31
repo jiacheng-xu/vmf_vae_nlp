@@ -6,7 +6,6 @@ from torch.autograd import Variable as Var
 import unittest
 
 
-
 class CNNEncoder(nn.Module):
     def __init__(self, inp_dim, hid_dim, kernel_sz, pad, dilat):
         super(CNNEncoder, self).__init__()

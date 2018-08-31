@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn import Module, Parameter, LSTMCell, Embedding, LSTM, Linear
 
+
 class LanguageModel(Module):
 
     def __init__(self, vocab_size, input_dim, hidden_dim, agenda_dim, num_layers=1,
@@ -12,7 +13,7 @@ class LanguageModel(Module):
         super(LanguageModel, self).__init__()
 
         self.embed = Embedding(vocab_size, input_dim)
-        self.decoder_rnn = LSTM(input_dim + agenda_dim,hidden_dim,num_layers=num_layers,dropout=drop_rate)
+        self.decoder_rnn = LSTM(input_dim + agenda_dim, hidden_dim, num_layers=num_layers, dropout=drop_rate)
         self.decoder_out = Linear(hidden_dim, vocab_size)
 
         self.agenda_dim = agenda_dim
@@ -26,7 +27,7 @@ class LanguageModel(Module):
         # TODO init word embedding from pretrain
         self.init_weights(input_dim, hidden_dim, agenda_dim)
 
-    def init_weights(self,input_dim, hidden_dim, agenda_dim):
+    def init_weights(self, input_dim, hidden_dim, agenda_dim):
         # kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal'
         torch.nn.init.xavier_uniform(self.decoder_rnn.weight_ih_l0.data, gain=nn.init.calculate_gain('sigmoid'))
         torch.nn.init.orthogonal(self.decoder_rnn.weight_hh_l0.data, gain=nn.init.calculate_gain('sigmoid'))
@@ -37,8 +38,6 @@ class LanguageModel(Module):
 
         # Linear kernel_initializer='glorot_uniform'
         torch.nn.init.xavier_uniform(self.decoder_out.weight.data, gain=nn.init.calculate_gain('linear'))
-
-
 
     def _encoder_output(self, batch_size):
         return tile_state(self.agenda, batch_size)
@@ -99,17 +98,14 @@ class Encoder(Module):
             token_embedder.embed_dim, hidden_dim, num_layers, rnn_cell_factory)
 
     def preprocess(self, examples):
-
         return SequenceBatch.from_sequences(examples, self.word_vocab)
 
     def forward(self, examples_seq_batch):
-
         embeds = self.token_embedder.embed_seq_batch(examples_seq_batch)
         source_encoder_output = self.source_encoder(embeds.split())
         return source_encoder_output
 
     def make_agenda(self, encoder_output):
-
         agenda = torch.cat(encoder_output.final_states, 1)
         return agenda
 
@@ -127,7 +123,6 @@ class EncoderNoiser(Module):
         self.kl_weight_cap = kl_weight_cap
 
     def preprocess(self, examples):
-
         return self.encoder.preprocess(examples)
 
     def kl_penalty(self, agenda):
@@ -144,10 +139,9 @@ class EncoderNoiser(Module):
 
         sigmoid = lambda x, k: 1 / (1 + np.e ** (-k * (2 * x - 1)))
         x = curr_step / float(self.kl_weight_steps)
-        return self.kl_weight_cap*sigmoid(x, self.kl_weight_rate)
+        return self.kl_weight_cap * sigmoid(x, self.kl_weight_rate)
 
     def forward(self, examples_seq_batch):
-
         source_encoder_output = self.encoder(examples_seq_batch)
         agenda = self.encoder.make_agenda(source_encoder_output)
         means = self.noise_mu * torch.ones(agenda.size())
@@ -159,7 +153,8 @@ class EncoderNoiser(Module):
 
 class NoisyLanguageModel(LanguageModel):
 
-    def __init__(self, token_embedder, hidden_dim, agenda_dim, num_layers, kl_weight_steps, kl_weight_rate, kl_weight_cap, dci_keep_rate, logger):
+    def __init__(self, token_embedder, hidden_dim, agenda_dim, num_layers, kl_weight_steps, kl_weight_rate,
+                 kl_weight_cap, dci_keep_rate, logger):
         super(NoisyLanguageModel, self).__init__(
             token_embedder, hidden_dim, agenda_dim, num_layers, logger)
 
@@ -196,7 +191,6 @@ class NoisyLanguageModel(LanguageModel):
         return kl_wt * kl + self.train_decoder.loss(noised_agenda, decoder_input)
 
     def _interpolate_vectors(self, v_a, v_b, steps=5):
-
         lambdas = np.linspace(0, 1, steps)
         interps = [(1 - l) * v_a + l * v_b for l in lambdas]
         return interps

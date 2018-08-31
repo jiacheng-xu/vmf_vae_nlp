@@ -1,6 +1,7 @@
 import os
 import torch
 
+
 class Dictionary(object):
     def __init__(self):
         self.word2idx = {}
@@ -23,12 +24,11 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, start_idx=0,end_idx=0):
+    def __init__(self, path, start_idx=0, end_idx=0):
         self.dictionary = Dictionary()
-        self.test = self.tokenize(os.path.join(path, 'test.txt'), start_idx,end_idx)
-        self.train = self.tokenize(os.path.join(path, 'train.txt'), start_idx,end_idx)
-        self.valid = self.tokenize(os.path.join(path, 'valid.txt'), start_idx,end_idx)
-
+        self.test = self.tokenize(os.path.join(path, 'test.txt'), start_idx, end_idx)
+        self.train = self.tokenize(os.path.join(path, 'train.txt'), start_idx, end_idx)
+        self.valid = self.tokenize(os.path.join(path, 'valid.txt'), start_idx, end_idx)
 
     def tokenize(self, path, start_idx, end_idx):
 
@@ -40,7 +40,7 @@ class Corpus(object):
         with open(path, 'r') as f:
             for line in f:
                 words = line.split()[start_idx:]
-                if end_idx != 0 and len(words)> end_idx:
+                if end_idx != 0 and len(words) > end_idx:
                     words = words[:end_idx]
                 if len(words) <= 1:
                     continue
@@ -55,11 +55,11 @@ class Corpus(object):
                 label = None
                 bag.append([tmp_seq, label])
 
-        bag = sorted(bag, key=lambda sample: sample[0].size()[0],reverse=True)
+        bag = sorted(bag, key=lambda sample: sample[0].size()[0], reverse=True)
         print('Min length: {}'.format(bag[-1][0].size()[0]))
         print('Path: {}'.format(path))
         print("Number of samples: {}".format(len(bag)))
-        print("Avg len: {}".format(sum(len_stat)/len(len_stat)))
+        print("Avg len: {}".format(sum(len_stat) / len(len_stat)))
         return bag
 
 

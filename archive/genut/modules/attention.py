@@ -43,7 +43,6 @@ class Attention(nn.Module):
         # if coverage is not None:
         #     self.linear_coverage = nn.Linear(1, dim, bias=False)
 
-
         self.mask = None
 
     def masked_attention(self, e, mask):
@@ -141,7 +140,6 @@ class Attention(nn.Module):
         attn_h_weighted = torch.sum(exp_attn_dist * context, dim=1)
 
         # batch, dim
-
 
         # attn_h = self.linear_out(inp_contxt).view(batch_size, 1, dim)
         # if self.attn_type in ['general', 'dot']:

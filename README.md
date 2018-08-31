@@ -64,6 +64,8 @@ You can pass command-line arguments and the `NVLL/argparser.py` will handle the 
 | dist | which distribution to use | {nor, vmf} |
 | lat_dim | dimension of the latent variable | Int |
 | kl_weight | the weight term before KL term in the objective funtion | 1 (default), any |
+| exp_path | The location for exp logs and saving files. | `YOUR/EXP` |
+| root_path | The location of the git repo. data is a sub-dir. | `YOUR/vmf_vae_nlp` |
 | ---- | Args Below Only availble for NVRNN | ---- |
 | input_z | Input the latent code z at every time step during decoding | True (default) or False |
 | mix_unk | How much of the input is mixed with UNK token. 0 = Using ground truth as input (Standard setting) and 1 = Using UNK as input (Inputless setting) | [0.0, 1.0] |
@@ -75,23 +77,41 @@ You can pass command-line arguments and the `NVLL/argparser.py` will handle the 
     
     cd NVLL
     # Training vMF VAE on 20 News group
-    PYTHONPATH=../ python nvll.py --lr 1 --batch_size 50 --eval_batch_size 50 --log_interval 75 --model nvdm --epochs 100  --optim sgd  --clip 1 --data_path data/20ng --data_name 20ng  --dist vmf --exp_path /backup2/jcxu/exp-nvdm --root_path /home/jcxu/vae_txt   --dropout 0.1 --emsize 100 --nhid 400 --aux_weight 0.0001 --dist vmf --kappa 100 --lat_dim 25
+    PYTHONPATH=../ python nvll.py --lr 1 --batch_size 50 --eval_batch_size 50 --log_interval 75 --model nvdm --epochs 100  --optim sgd  --clip 1 --data_path data/20ng --data_name 20ng  --dist vmf --exp_path YOUR/EXP --root_path YOUR/vmf_vae_nlp   --dropout 0.1 --emsize 100 --nhid 400 --aux_weight 0.0001 --dist vmf --kappa 100 --lat_dim 25
     
     # Training vMF VAE on RC
-    PYTHONPATH=../ python nvll.py --lr 1 --batch_size 50 --eval_batch_size 50 --log_interval 1000 --model nvdm --epochs 100  --optim sgd  --clip 1 --data_path data/rcv --data_name rcv  --dist vmf --exp_path /backup2/jcxu/exp-nvdm --root_path /home/jcxu/vae_txt   --dropout 0.1 --emsize 400 --nhid 800 --aux_weight 0.0001 --dist vmf --kappa 150 --lat_dim 50
+    PYTHONPATH=../ python nvll.py --lr 1 --batch_size 50 --eval_batch_size 50 --log_interval 1000 --model nvdm --epochs 100  --optim sgd  --clip 1 --data_path data/rcv --data_name rcv  --dist vmf --exp_path YOUR/EXP --root_path YOUR/vmf_vae_nlp   --dropout 0.1 --emsize 400 --nhid 800 --aux_weight 0.0001 --dist vmf --kappa 150 --lat_dim 50
 
 #### Training Neural Variational Recurrent Language Model (NVRNN)
      
      cd NVLL
+     
+     # --cd_bow 200
+     # Condition on BoW
+     # --cd_bow 0
+     # NOT Condition on BoW. Default setting
+     
+     
+     # --cd_bit 50
+     # Condition on sentiment bit. Only for Yelp.
+     # --cd_bit 0
+     # Not Condition on sentiment bit. Only for Yelp. In this case, sentiment bit will be skipped. Default Setting.
+     
+     # --swap 0.0 --replace 0.0
+     # Default setting. No random swapping of encoding sequence.
+     
+     
      # Training vMF VAE on PTB
+     # Example
+     PYTHONPATH=../ python nvll.py --lr 10 --batch_size 20 --eval_batch_size 20 --log_interval 500 --model nvrnn --epochs 100  --optim sgd --data_name ptb --data_path data/ptb --clip 0.25 --input_z --dropout 0.5 --emsize 100 --nhid 400 --aux_weight 0  --nlayers 1 --swap 0.0 --replace 0.0   --exp_path YOUR/EXP --root_path YOUR/vmf_vae_nlp --cd_bit 0 --cd_bow 0 --dist vmf --kappa 80 --mix_unk 1 --lat_dim 50 --norm_max 1
      
      # Training vMF VAE on Yelp
-
+     PYTHONPATH=../ python nvll.py --lr 10 --batch_size 20 --eval_batch_size 20 --log_interval 500 --model nvrnn --epochs 100  --optim sgd --data_name ptb --data_path data/ptb --clip 0.25 --input_z --dropout 0.5 --emsize 100 --nhid 400 --aux_weight 0  --nlayers 1 --swap 0.0 --replace 0.0   --exp_path YOUR/EXP --root_path YOUR/vmf_vae_nlp --cd_bit 50 --cd_bow 0 --dist vmf --kappa 80 --mix_unk 0 --lat_dim 50 --norm_max 1
 ## Reference
 Please cite:
 
         
-    @InProceedings{vmfvae,
+    @InProceedings{xu2018,
       author =      "Xu, Jiacheng and Durrett, Greg",
       title =       "Spherical Latent Spaces for Stable Variational Autoencoders",
       booktitle =   "Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing",

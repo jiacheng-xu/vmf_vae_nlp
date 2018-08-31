@@ -12,7 +12,7 @@ class RNNModel(nn.Module):
         self.drop = nn.Dropout(dropout)
         self.embed = nn.Embedding(ntoken, ninp)
 
-        self.decoder_rnn = nn.LSTM(ninp+agenda_dim, nhid, nlayers, dropout=dropout)
+        self.decoder_rnn = nn.LSTM(ninp + agenda_dim, nhid, nlayers, dropout=dropout)
         self.decoder_out = nn.Linear(nhid, ntoken)
 
         # Optionally tie weights as in:

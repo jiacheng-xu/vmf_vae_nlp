@@ -3,6 +3,7 @@ import os
 import spacy
 import nltk
 
+
 def preprocess_stage_1(path, train_file, test_file):
     """
     Goal: generate train.txt valid.txt test.txt
@@ -24,8 +25,8 @@ def preprocess_stage_1(path, train_file, test_file):
         pred_comma = line.find(',')
         expected_comma = 3
         assert pred_comma == expected_comma
-        label, sent = line[1:expected_comma-1], line[expected_comma+2:-1]
-        return label+'\t'+sent
+        label, sent = line[1:expected_comma - 1], line[expected_comma + 2:-1]
+        return label + '\t' + sent
 
     def _read_file(path, which_file, keep_num):
         with open('/'.join([path, which_file]), 'r') as tr:
@@ -40,10 +41,10 @@ def preprocess_stage_1(path, train_file, test_file):
             bag.append(new_line)
         return bag
 
-    trains = _read_file(path,train_file,100000)
-    valid_and_test = _read_file(path, test_file,20000)
+    trains = _read_file(path, train_file, 100000)
+    valid_and_test = _read_file(path, test_file, 20000)
 
-    with open(os.path.join(path,'train.txt'), 'w') as fd:
+    with open(os.path.join(path, 'train.txt'), 'w') as fd:
         fd.write('\n'.join(trains))
 
     valids = valid_and_test[:10000]
@@ -54,21 +55,21 @@ def preprocess_stage_1(path, train_file, test_file):
     with open(os.path.join(path, 'test.txt'), 'w') as fd:
         fd.write('\n'.join(tests))
 
-def preprocess_stage_2(path,fname_train,fname_valid,fname_test):
 
+def preprocess_stage_2(path, fname_train, fname_valid, fname_test):
     def _toke_file(fname):
-        toked_file = 'toked_'+fname
+        toked_file = 'toked_' + fname
         bag = []
         with open(os.path.join(path, fname), 'r') as fd:
             lines = fd.read().splitlines()
             for idx, l in enumerate(lines):
-                if idx % 1000 ==0:
+                if idx % 1000 == 0:
                     print('{} toked'.format(idx))
                 tokens = nltk.tokenize.word_tokenize(l)
                 tokens = ' '.join(tokens)
                 bag.append(tokens)
 
-        with open(os.path.join(path,toked_file),'w') as wfd:
+        with open(os.path.join(path, toked_file), 'w') as wfd:
             wfd.write('\n'.join(bag))
 
     _toke_file(fname_train)
@@ -76,15 +77,16 @@ def preprocess_stage_2(path,fname_train,fname_valid,fname_test):
     _toke_file(fname_test)
     # substitute \ '' '' with  \"   \n with [blank]
 
-def preprocess_stage_3_build_dict(path, dict_sz, train, valid=None,test=None):
+
+def preprocess_stage_3_build_dict(path, dict_sz, train, valid=None, test=None):
     import operator
     d = {}
 
-    def _count(fname,dic):
+    def _count(fname, dic):
         with open(os.path.join(path, fname), 'r') as fd:
             lines = fd.read().splitlines()
             for l in lines:
-                l = [ w for w in l.split(' ') if w!='' ]
+                l = [w for w in l.split(' ') if w != '']
                 for w in l:
                     if w in dic:
                         dic[w] += 1
@@ -96,8 +98,8 @@ def preprocess_stage_3_build_dict(path, dict_sz, train, valid=None,test=None):
     if valid is not None:
         d = _count(valid, d)
     d = _count(test, d)
-    sorted_d = sorted(d.items(), key=operator.itemgetter(1),reverse=True)
-    sorted_d = sorted_d[:dict_sz-3]  # leave space for sos pad unk
+    sorted_d = sorted(d.items(), key=operator.itemgetter(1), reverse=True)
+    sorted_d = sorted_d[:dict_sz - 3]  # leave space for sos pad unk
 
     keep_words = [tup[0] for tup in sorted_d]
 
@@ -106,7 +108,7 @@ def preprocess_stage_3_build_dict(path, dict_sz, train, valid=None,test=None):
             lines = fd.read().splitlines()
             new_lines = []
             for l in lines:
-                l = [ w for w in l.split(' ') if w!='' ]
+                l = [w for w in l.split(' ') if w != '']
                 new_l = []
                 for w in l:
                     if w in keep_list:
@@ -115,7 +117,7 @@ def preprocess_stage_3_build_dict(path, dict_sz, train, valid=None,test=None):
                         new_l.append('<unk>')
                 new_l = ' '.join(new_l)
                 new_lines.append(new_l)
-        with open(os.path.join(path, 'final_'+fname), 'w') as fd:
+        with open(os.path.join(path, 'final_' + fname), 'w') as fd:
             fd.write('\n'.join(new_lines))
 
     _update(train, keep_words)
@@ -143,4 +145,4 @@ if __name__ == "__main__":
 
     # Build dictionary
     dict_size = 2000
-    preprocess_stage_3_build_dict(path,dict_size , toked_train, None, toked_test)
+    preprocess_stage_3_build_dict(path, dict_size, toked_train, None, toked_test)

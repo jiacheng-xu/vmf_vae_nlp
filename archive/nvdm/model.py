@@ -39,18 +39,18 @@ class BowVAE(torch.nn.Module):
         active_x = self.active(linear_x)
         linear_x_2 = self.enc_vec_2(active_x)
 
-        tup, kld, vecs = self.dist.build_bow_rep(linear_x_2,self.n_sample)
+        tup, kld, vecs = self.dist.build_bow_rep(linear_x_2, self.n_sample)
 
         ys = 0
         for i, v in enumerate(vecs):
             logit = torch.nn.functional.log_softmax(self.out(v))
             logit = self.dropout(logit)
-            ys +=torch.mul(x,logit)
+            ys += torch.mul(x, logit)
         # out = self.out(vec)
         # logits = torch.nn.functional.log_softmax(out)
         # y = torch.mul(x, logits)
 
-        y = ys/self.n_sample
+        y = ys / self.n_sample
 
         recon_loss = -torch.sum(y, dim=1, keepdim=False)
 

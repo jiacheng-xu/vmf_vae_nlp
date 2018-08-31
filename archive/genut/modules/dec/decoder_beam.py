@@ -3,7 +3,6 @@ import torch
 import torch.optim
 from torch.autograd import Variable as Var
 
-
 from archive.genut import Beam
 
 
@@ -24,7 +23,6 @@ def beam_decode(self, context, context_msk, state, inp_var, feat, max_oov, scatt
     assert batch_size == 1 == batch_size_ == batch_size__
     assert context_len__ == contxt_len == contxt_len_
     # Till now, context: seq_len, batch_size, hidden_size (400)
-
 
     archived_hyp = []
 

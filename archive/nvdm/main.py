@@ -166,7 +166,7 @@ def train(train_batches, glob_iteration):
         # print(kld.size(), mask.size())
         acc_kl_loss += torch.sum(kld.data * torch.sum(mask.data))
 
-        count_batch = count_batch+  1e-12
+        count_batch = count_batch + 1e-12
         word_cnt += torch.sum(count_batch)
         doc_cnt += torch.sum(mask.data)
 

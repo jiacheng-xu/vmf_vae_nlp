@@ -1,10 +1,10 @@
-
 import torch
 import numpy
 import scipy.special
 
 import numpy as np
-mu, kappa = 2.0, 0 # mean and dispersion
+
+mu, kappa = 2.0, 0  # mean and dispersion
 
 # s = np.random.vonmises(mu, kappa, 1000)
 # print(s)
@@ -45,16 +45,15 @@ mu, kappa = 2.0, 0 # mean and dispersion
 
 with open('/Users/jcxu/Box/388NLP/hw3/penn-dependencybank/wsj-conllx/wsj_00.conllx', 'r') as f:
     lines = f.read().splitlines()
-    cnt=50
+    cnt = 50
     buff = ''
     for l in lines:
         # print(l)
-        if l=='':
+        if l == '':
             print('!')
             cnt -= 1
-        if cnt ==0:
+        if cnt == 0:
             print(buff)
             exit()
         else:
             buff = l
-

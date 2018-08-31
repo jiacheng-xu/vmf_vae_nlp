@@ -229,14 +229,14 @@ class Runner():
             batch_cnt += batch_sz
             all_cnt += batch_sz * seq_len
             if idx % args.log_interval == 0 and idx > 0:
-                cur_loss = acc_loss.item()  / all_cnt
-                cur_kl = acc_kl_loss.item()  / all_cnt
+                cur_loss = acc_loss.item() / all_cnt
+                cur_kl = acc_kl_loss.item() / all_cnt
                 # if cur_kl < 0.03:
                 #     raise KeyboardInterrupt
                 # if cur_kl > 0.7:
                 #     raise KeyboardInterrupt
-                cur_aux_loss = acc_aux_loss.item()  / all_cnt
-                cur_avg_cos = acc_avg_cos.item()  / cnt
+                cur_aux_loss = acc_aux_loss.item() / all_cnt
+                cur_avg_cos = acc_avg_cos.item() / cnt
                 cur_avg_norm = acc_avg_norm.item() / cnt
                 cur_real_loss = cur_loss + cur_kl
                 Runner.log_instant(self.writer, self.args, self.glob_iter, epo, start_time, cur_avg_cos, cur_avg_norm,

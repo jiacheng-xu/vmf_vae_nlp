@@ -2,6 +2,7 @@ import argparse
 from argparse import ArgumentParser
 import os
 
+
 class ArgParser():
     def __init__(self):
         parser = argparse.ArgumentParser()
@@ -105,7 +106,7 @@ class ArgParser():
                             help='Add additional supervision with attention alignment.')
         parser.add_argument('--fudge', action='store', type=float, default=1e-7, help='epsilon for vae')
 
-        parser.add_argument('--num_simu', action='store',type=int, default=4,
+        parser.add_argument('--num_simu', action='store', type=int, default=4,
                             help='Time of simulation when estimating gradient for VAE.')
 
         self.parser = parser

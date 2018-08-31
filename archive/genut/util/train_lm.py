@@ -18,7 +18,7 @@ class LMTrainer(Trainer):
         # weight = torch.ones(opt.full_dict_size)
         # weight[0] = 0
         # assert 0 == opt.word_dict.fword2idx('<pad>')
-        self.crit = nn.CrossEntropyLoss(size_average=True,reduce=True, ignore_index=0)
+        self.crit = nn.CrossEntropyLoss(size_average=True, reduce=True, ignore_index=0)
         self.crit_test = nn.CrossEntropyLoss(size_average=False, reduce=False, ignore_index=0)
         self.opt = opt
         self.model = model
@@ -71,11 +71,11 @@ class LMTrainer(Trainer):
 
         return loss.data[0], math.exp(loss.data[0])
 
-
     def func_test(self, inp_var, inp_msk):
         target_len = inp_msk[0]
         batch_size = inp_var.size()[0]
-        decoder_outputs_prob, decoder_outputs = self.model.forward(inp_var, inp_msk, tgt_var=inp_var, tgt_msk=inp_msk, aux=None)
+        decoder_outputs_prob, decoder_outputs = self.model.forward(inp_var, inp_msk, tgt_var=inp_var, tgt_msk=inp_msk,
+                                                                   aux=None)
 
         # Compulsory NLL loss part
         pred_prob = decoder_outputs_prob.view(target_len * batch_size, -1)
@@ -87,8 +87,6 @@ class LMTrainer(Trainer):
         loss = self.crit_test(pred_prob, gold_dist)
         loss = torch.sum(loss)
         return loss.data[0], decoder_outputs
-
-
 
     def train_iters(self):
         """
@@ -127,12 +125,11 @@ class LMTrainer(Trainer):
                 if idx % self.opt.print_every == 0:
                     logging.info('NLL:%.2f \tPPL:%s' % (nll, str(ppl)))
 
-
                 if idx % self.opt.save_every == 0:
                     ppl = self.evaluate()
                     os.chdir(self.opt.save_dir)
 
-                    name_string = '%d_%.2f'.lower() % (epo,ppl)
+                    name_string = '%d_%.2f'.lower() % (epo, ppl)
                     logging.info("Saving in epo %s" % name_string)
                     torch.save(self.model.emb.state_dict(),
                                name_string + '_emb')
@@ -146,16 +143,16 @@ class LMTrainer(Trainer):
         self.model.eval()
         n_batch = len(self.test_bag)
         test_len = 0
-        accumulated_ppl=0
+        accumulated_ppl = 0
         for idx in range(n_batch):
             current_batch = self.test_bag[idx]
             inp_var = current_batch['txt']
             inp_mask = current_batch['txt_msk']
             batch_size = inp_var.size()[0]
-            test_len += inp_mask[0]*batch_size
+            test_len += inp_mask[0] * batch_size
             nll, decoder_output = self.func_test(inp_var, inp_mask)
             accumulated_ppl += nll
         final_ppl = accumulated_ppl / test_len
         final_ppl = math.exp(final_ppl)
-        logging.info('PPL: %f'%final_ppl)
+        logging.info('PPL: %f' % final_ppl)
         return final_ppl

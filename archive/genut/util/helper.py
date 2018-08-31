@@ -26,7 +26,6 @@ def schedule(epo):
         return 250, 60, 0
 
 
-
 def truncate_mat(length, var):
     if type(var) != list:
         cur_len, batch = var.size()
@@ -62,6 +61,7 @@ def reset_ext_dict_size(bag):
 
 def show_size(x):
     print(x.data.size())
+
 
 def mask_translator(mask_list, batch_first=False, is_var=True):
     """
@@ -446,8 +446,6 @@ def count_n_gram(inp, n, stop=None):
                 d[temp_str] = i
     return d
 
-
-
     # x = count_n_gram(['a','b','c','d'],3)
     # print(x)
 
@@ -674,10 +672,11 @@ def concurrent_io(func, files):
     pool.join()
     return output
 
+
 def msk_list_to_mat(inp_list):
     batch_sz = len(inp_list)
     max_len = inp_list[0]
-    mask = torch.zeros( max_len,batch_sz).float()
+    mask = torch.zeros(max_len, batch_sz).float()
 
     for idx, l in enumerate(inp_list):
         mask[:l, idx] = 1

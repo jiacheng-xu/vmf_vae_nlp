@@ -2,6 +2,7 @@ import time
 import torch
 import sys
 
+
 def show_progress_bar(epo, current_batch, total_batch, time_start, time_current, data_string):
     sys.stdout.write('\r')
     hours, rem = divmod(time_current - time_start, 3600)
@@ -12,7 +13,6 @@ def show_progress_bar(epo, current_batch, total_batch, time_start, time_current,
         "Epo: %2d [%-40s] %3d%% %-2d:%-2d:%02.0f %s" % (
             epo, '=' * rate, progress, int(hours), int(minutes), seconds, data_string))
     sys.stdout.flush()
-
 
 
 class LossItem():
