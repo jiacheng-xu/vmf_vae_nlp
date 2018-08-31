@@ -6,10 +6,12 @@ In this repo, we provide the experimental setups and inplementation for the algo
     Spherical Latent Spaces for Stable Variational Autoencoders.
     Jiacheng Xu and Greg Durrett. EMNLP 2018.
     
+The arXiv version has been submitted.    
     
 ## About
 
 Keyword: **PyTorch**, **VAE**, **NLP**, **vMF**
+
 What to get from this repo: 
 * Original **Gaussian VAE**;
 * Novel **von-Mises Fisher VAE (vMF-VAE)** with tuned hyper-parameters.
