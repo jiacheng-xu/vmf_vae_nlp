@@ -6,7 +6,9 @@ In this repo, we provide the experimental setups and implementation for the algo
     Spherical Latent Spaces for Stable Variational Autoencoders.
     Jiacheng Xu and Greg Durrett. EMNLP 2018.
     
-Author: [Jiacheng Xu](http://www.cs.utexas.edu/~jcxu/) and [Greg Durrett](http://www.cs.utexas.edu/~gdurrett/index.shtml). The arXiv version has been submitted.    
+Author: [Jiacheng Xu](http://www.cs.utexas.edu/~jcxu/) and [Greg Durrett](http://www.cs.utexas.edu/~gdurrett/index.shtml). 
+
+The arXiv version has been posted: [arXiv](https://arxiv.org/abs/1808.10805).    
     
 ## About
 
@@ -44,7 +46,7 @@ The codes are originally developed in PyTorch 0.3.1 and upgraded to PyTorch 0.4.
 #### Data for Document Model
 In this paper, we use the exact same pre-processed dataset, 20NG and RC, as Miao et al. used in 
 [Neural Variational Inference for Text Processing](https://arxiv.org/abs/1511.06038). Here is the [link to Miao's repo](https://github.com/ysmiao/nvdm).
-* [Download RC](https://utexas.box.com/s/36iue908zi0m41ee4ciy8e2xi48bcwko) (Email me or submit an issue if it doesn't work)
+* [Download RC](https://utexas.box.com/s/fxx989beng9zyafv9oej180wf3vt7v1w) (Email me or submit an issue if it doesn't work)
 * Location of 20 News Group(20ng): `data/20ng`.
 
 #### Data for Language Model
