@@ -60,6 +60,7 @@ The choice of cpu or gpu can be modified at `NVLL/util/gpu_flag.py`.
 
 ### Explanation of Options \& Arguments
 
+
 If you want to play around with the {Gaussian, vMF} VAE model for {document model, language model}, there are many possible settings.
 You can pass command-line arguments and the `NVLL/argparser.py` will handle the arguments. I will explain some nontrivial arguments. 
 
@@ -76,7 +77,7 @@ You can pass command-line arguments and the `NVLL/argparser.py` will handle the 
 | cd_bow | Condition on Bag-of-words. 0=not conditioned on BoW.  | 0 or int(like 200). |
 | cd_bit | Condition on sentiment bit for the Yelp dataset. Not available for PTB. 0=not conditioned on sentiment bit.  | 0 or int(like 50). |
 ### Train and Test
-
+See [here](https://github.com/jiacheng-xu/vmf_vae_nlp/issues/3) for hyper-parameter configuration.
 #### Training Neural Variational Document Model (NVDM)
     
     cd NVLL
