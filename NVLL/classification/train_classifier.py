@@ -1,3 +1,7 @@
+# File for transfer experiment.
+# Learn an MLP to map from code to bow or bow to code.
+# Both code and bow are fixed and only loaded here as data. Param of MLP is the stuff we learn here.
+
 import argparse
 import os
 from operator import itemgetter
